@@ -2,21 +2,26 @@
 // firestore.rules
 // Pacific Blue Developments — Business Management Application
 // -----------------------------------------------------------------------------
-// Firestore Security Rules for Phase 1.
+// Firestore Security Rules — updated to include settings collection.
 //
-// Role values stored as custom claims on Firebase Auth user object:
-//   request.auth.token.role == "director"
-//   request.auth.token.role == "sales"
-//   request.auth.token.role == "supervisor"
-//   request.auth.token.role == "accounts"
+// Role values stored in Firestore userroles/{uid} document, field "role":
+//   "director" | "sales" | "supervisor" | "accounts"
 //
 // Access matrix:
 //   directors   — full read/write on all collections
 //   sales       — create + read leads; read projects + contacts; no staffmembers
 //   supervisors — read projects; update specific project fields only; no leads
 //   accounts    — read projects only
+//   settings    — directors read/write; all other authenticated roles read only
 //
-// Deploy with:  firebase deploy --only firestore:rules
+// NOTE: Role enforcement on this app uses Firestore userroles collection
+// (not Firebase Auth custom claims) for role lookup in the client. These
+// security rules use custom claims as a secondary server-side guard.
+// If custom claims are not set, director-level rules will not enforce at the
+// database layer — ensure custom claims are set via Cloud Function for
+// production hardening.
+//
+// Deploy with: firebase deploy --only firestore:rules
 // =============================================================================
 
 rules_version = '2';
@@ -28,33 +33,27 @@ service cloud.firestore {
     // Helper functions
     // -------------------------------------------------------------------------
 
-    // Returns true if the request is from an authenticated user
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Returns true if the authenticated user has the Director role
     function isDirector() {
       return isAuthenticated() && request.auth.token.role == "director";
     }
 
-    // Returns true if the authenticated user has the Sales role
     function isSales() {
       return isAuthenticated() && request.auth.token.role == "sales";
     }
 
-    // Returns true if the authenticated user has the Supervisor role
     function isSupervisor() {
       return isAuthenticated() && request.auth.token.role == "supervisor";
     }
 
-    // Returns true if the authenticated user has the Accounts role
     function isAccounts() {
       return isAuthenticated() && request.auth.token.role == "accounts";
     }
 
-    // Returns true if the incoming write only touches fields a Supervisor is
-    // permitted to update on a project document.
+    // Returns true if a Supervisor write only touches permitted project fields
     function supervisorFieldsOnly() {
       let allowedFields = [
         "currentStage",
@@ -63,80 +62,80 @@ service cloud.firestore {
         "pipelineNotes",
         "updatedAt"
       ];
-      // affectedKeys() returns the set of keys being written in this request.
-      // Every key in the write must be in the allowed list.
       return request.resource.data.diff(resource.data).affectedKeys()
                .hasOnly(allowedFields);
     }
 
     // -------------------------------------------------------------------------
-    // Collection: leads
+    // Collection: userroles
+    // Any authenticated user can read their own role document.
+    // Only Directors can write (role assignment done via console or Cloud Fn).
     // -------------------------------------------------------------------------
+    match /userroles/{userId} {
+      allow read:  if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isDirector();
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: leads
     // Directors : full read/write
     // Sales     : create and read
     // Supervisor: no access
     // Accounts  : no access
     // -------------------------------------------------------------------------
     match /leads/{leadId} {
-
-      allow read: if isDirector() || isSales();
-
-      // Sales can create new leads; Directors can create as well
-      allow create: if isDirector() || isSales();
-
-      // Only Directors can update or delete leads
-      allow update, delete: if isDirector();
+      allow read:          if isDirector() || isSales();
+      allow create:        if isDirector() || isSales();
+      allow update, delete:if isDirector();
     }
 
     // -------------------------------------------------------------------------
     // Collection: projects
-    // -------------------------------------------------------------------------
     // Directors  : full read/write
     // Sales      : read only
     // Supervisors: read; update allowed fields only; no create/delete
     // Accounts   : read only
     // -------------------------------------------------------------------------
     match /projects/{projectId} {
-
-      allow read: if isDirector() || isSales() || isSupervisor() || isAccounts();
-
-      // Only Directors can create or delete projects
-      allow create, delete: if isDirector();
-
-      // Directors can update anything.
-      // Supervisors can update only the permitted subset of fields.
-      allow update: if isDirector()
-                    || (isSupervisor() && supervisorFieldsOnly());
+      allow read:          if isDirector() || isSales() || isSupervisor() || isAccounts();
+      allow create, delete:if isDirector();
+      allow update:        if isDirector()
+                           || (isSupervisor() && supervisorFieldsOnly());
     }
 
     // -------------------------------------------------------------------------
     // Collection: contacts
-    // -------------------------------------------------------------------------
     // Directors : full read/write
     // Sales     : read only
-    // Supervisor: no access
-    // Accounts  : no access
+    // Others    : no access
     // -------------------------------------------------------------------------
     match /contacts/{contactId} {
-
-      allow read: if isDirector() || isSales();
-
+      allow read:               if isDirector() || isSales();
       allow create, update, delete: if isDirector();
     }
 
     // -------------------------------------------------------------------------
     // Collection: staffmembers
-    // -------------------------------------------------------------------------
-    // Directors : full read/write
-    // All others: no access
+    // Directors only
     // -------------------------------------------------------------------------
     match /staffmembers/{staffId} {
-
       allow read, write: if isDirector();
     }
 
     // -------------------------------------------------------------------------
-    // Catch-all: deny everything not explicitly allowed above
+    // Collection: settings
+    // Directors : full read/write
+    // All other authenticated roles: read only
+    // (Sales, Supervisor, Accounts need to read marketConditionsPct for
+    //  pipeline calculations and display)
+    // -------------------------------------------------------------------------
+    match /settings/{docId} {
+      allow read:        if isAuthenticated();
+      allow write:       if isDirector();
+    }
+
+    // -------------------------------------------------------------------------
+    // Catch-all: deny everything not explicitly permitted above
     // -------------------------------------------------------------------------
     match /{document=**} {
       allow read, write: if false;

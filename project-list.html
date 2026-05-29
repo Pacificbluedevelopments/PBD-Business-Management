@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<!--
+  project-list.html
+  Pacific Blue Developments — Business Management Application
+  ─────────────────────────────────────────────────────────────
+  Pipeline view showing all active project opportunities.
+  Accessible to Sales, Director, and Accounts roles.
+
+  Features:
+    - Summary cards: count, total pipeline, weighted pipeline, market conditions
+    - Filter bar: search, phase, likelihood level, fiscal year
+    - Inline edit panel per row
+    - Weighted value = estimatedBudget × likelihoodPct × marketConditionsPct
+    - marketConditionsPct read from Firestore settings/global
+
+  Conventions:
+    - Currency stored as numbers ex-GST
+    - Dates stored as ISO YYYY-MM-DD strings
+    - likelihoodPct stored as decimal (0.5 = 50%)
+    - Imports Firebase from ./firebase-config.js
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pipeline — Pacific Blue Developments</title>
+
+  <style>
+    :root {
+      --navy:         #1B2A3B;
+      --navy-light:   #243548;
+      --navy-dark:    #111d2b;
+      --gold:         #B8860B;
+      --gold-light:   #d4a017;
+      --gold-pale:    #fdf6e3;
+      --white:        #ffffff;
+      --off-white:    #f5f6f8;
+      --row-alt:      #f9fafb;
+      --border:       #dde1e7;
+      --text:         #1B2A3B;
+      --text-mid:     #4a5568;
+      --text-muted:   #6b7a8d;
+      --danger:       #c0392b;
+      --danger-bg:    #fdf0ef;
+      --danger-border:#f1b9b5;
+      --success:      #1a7a4a;
+      --radius:       6px;
+      --radius-lg:    10px;
+      --shadow-sm:    0 1px 3px rgba(0,0,0,0.06);
+      --shadow:       0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--off-white);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: var(--navy);
+      color: var(--white);
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 0 32px; height: 64px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      position: sticky; top: 0; z-index: 200;
+    }
+    .topbar-brand { display: flex; align-items: center; gap: 12px; }
+    .topbar-logo {
+      width: 36px; height: 36px; background: var(--gold);
+      border-radius: 4px; display: flex; align-items: center;
+      justify-content: center; font-weight: 700; font-size: 16px;
+      color: var(--navy); letter-spacing: 0.5px; flex-shrink: 0;
+    }
+    .topbar-title  { font-size: 17px; font-weight: 700; letter-spacing: 0.3px; }
+    .topbar-subtitle {
+      font-size: 12px; color: rgba(255,255,255,0.55);
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .topbar-right  { display: flex; align-items: center; gap: 12px; }
+    .topbar-user   { font-size: 13px; color: rgba(255,255,255,0.75); }
+    .btn-new-lead {
+      background: var(--gold); border: none;
+      color: var(--navy); font-family: Arial, sans-serif;
+      font-size: 13px; font-weight: 700; padding: 7px 16px;
+      border-radius: var(--radius); cursor: pointer;
+      text-decoration: none; display: inline-flex;
+      align-items: center; gap: 6px; transition: background 0.2s;
+    }
+    .btn-new-lead:hover { background: var(--gold-light); }
+    .btn-signout {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3); color: var(--white);
+      font-family: Arial, sans-serif; font-size: 13px;
+      padding: 6px 14px; border-radius: var(--radius);
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-signout:hover { background: rgba(255,255,255,0.1); }
+
+    /* ── Page wrapper ── */
+    .page-wrapper { max-width: 1280px; margin: 0 auto; padding: 32px 24px 60px; }
+
+    .page-header { margin-bottom: 24px; }
+    .page-title  { font-size: 24px; font-weight: 700; color: var(--navy); }
+    .page-subtitle { font-size: 14px; color: var(--text-muted); margin-top: 3px; }
+
+    /* ── Summary cards ── */
+    .summary-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .summary-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Linked cards for weighted pipeline and market conditions */
+    .summary-card.linked {
+      background: #eef2f7;
+      border-color: #c9d5e3;
+    }
+
+    .summary-card-label {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.8px; text-transform: uppercase;
+      color: var(--text-muted); margin-bottom: 8px;
+    }
+
+    .summary-card-value {
+      font-size: 24px; font-weight: 700;
+      color: var(--navy); line-height: 1.1;
+    }
+
+    .summary-card-sub {
+      font-size: 12px; color: var(--text-muted); margin-top: 4px;
+    }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px; margin-bottom: 16px;
+      display: flex; flex-wrap: wrap; gap: 12px;
+      align-items: flex-end; box-shadow: var(--shadow-sm);
+    }
+
+    .filter-group { display: flex; flex-direction: column; gap: 5px; min-width: 140px; }
+    .filter-group.search-group { flex: 1; min-width: 200px; }
+    .filter-group label {
+      font-size: 11px; font-weight: 700;
+      color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .filter-group input,
+    .filter-group select {
+      font-family: Arial, sans-serif; font-size: 13.5px;
+      color: var(--text); background: var(--white);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 7px 10px; transition: border-color 0.2s; appearance: none; width: 100%;
+    }
+    .filter-group input:focus,
+    .filter-group select:focus {
+      outline: none; border-color: var(--navy);
+      box-shadow: 0 0 0 3px rgba(27,42,59,0.08);
+    }
+    .filter-group input::placeholder { color: var(--text-muted); }
+    .select-wrap { position: relative; }
+    .select-wrap::after {
+      content: "▾"; position: absolute; right: 9px; top: 50%;
+      transform: translateY(-50%); color: var(--text-muted);
+      pointer-events: none; font-size: 10px;
+    }
+    .btn-clear-filters {
+      font-family: Arial, sans-serif; font-size: 13px; font-weight: 700;
+      padding: 7px 14px; background: transparent;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-mid); cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+      white-space: nowrap; align-self: flex-end;
+    }
+    .btn-clear-filters:hover { border-color: var(--navy); color: var(--navy); }
+
+    /* ── Summary line ── */
+    .summary-line {
+      font-size: 13px; color: var(--text-muted);
+      margin-bottom: 12px; min-height: 20px;
+    }
+    .summary-line strong { color: var(--navy); }
+
+    /* ── Table card ── */
+    .table-card {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow: hidden;
+    }
+    .table-scroll { overflow-x: auto; }
+
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: 13.5px; min-width: 1050px;
+    }
+
+    thead { background: var(--navy); color: var(--white); }
+    thead th {
+      padding: 12px 14px; text-align: left;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.6px; text-transform: uppercase; white-space: nowrap;
+    }
+
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:nth-child(even) { background: var(--row-alt); }
+    tbody tr:hover { background: #eef1f5; }
+    tbody tr.edit-panel-row  { background: var(--white) !important; }
+    tbody tr.edit-panel-row:hover { background: var(--white) !important; }
+    tbody tr.row-active { background: var(--gold-pale) !important; }
+
+    td { padding: 11px 14px; vertical-align: middle; }
+    td.muted { color: var(--text-muted); font-size: 13px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block; padding: 3px 10px;
+      border-radius: 20px; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.4px; text-transform: uppercase; white-space: nowrap;
+    }
+    .badge-high    { background: #d4edda; color: #155724; }
+    .badge-medium  { background: #fff3cd; color: #856404; }
+    .badge-low     { background: #f8d7da; color: #721c24; }
+
+    .badge-sales         { background: #e8f4fd; color: #1565c0; }
+    .badge-preliminaries { background: #fff8e6; color: #8a6000; }
+    .badge-construction  { background: #e8f5e9; color: #2e7d32; }
+    .badge-completed     { background: #e8eaed; color: #3c4043; }
+    .badge-onhold        { background: #fce8e6; color: #c5221f; }
+    .badge-cancelled     { background: #f1f3f4; color: #9aa0a6; }
+
+    /* ── Likelihood % colouring ── */
+    .lh-high   { color: #155724; font-weight: 700; }
+    .lh-medium { color: #856404; font-weight: 700; }
+    .lh-low    { color: #721c24; font-weight: 700; }
+
+    /* ── Action button ── */
+    .btn-view-edit {
+      font-family: Arial, sans-serif; font-size: 12px; font-weight: 700;
+      padding: 5px 12px; background: var(--navy); border: none;
+      border-radius: var(--radius); color: var(--white);
+      cursor: pointer; transition: background 0.15s; white-space: nowrap;
+    }
+    .btn-view-edit:hover { background: var(--navy-light); }
+    .btn-view-edit.active { background: var(--gold); color: var(--navy); }
+
+    /* ── Inline edit panel ── */
+    .edit-panel-cell { padding: 0 !important; }
+    .edit-panel {
+      padding: 24px 28px; background: #f0f4f8;
+      border-top: 2px solid var(--gold);
+    }
+    .edit-panel-title {
+      font-size: 13px; font-weight: 700; color: var(--navy);
+      text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 18px;
+    }
+    .edit-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 14px 20px; margin-bottom: 18px;
+    }
+    .edit-group { display: flex; flex-direction: column; gap: 5px; }
+    .edit-group.span-2 { grid-column: span 2; }
+    .edit-group.span-3 { grid-column: span 3; }
+    .edit-group label {
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .edit-group input,
+    .edit-group select,
+    .edit-group textarea {
+      font-family: Arial, sans-serif; font-size: 13.5px;
+      color: var(--text); background: var(--white);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 8px 10px; transition: border-color 0.2s; appearance: none; width: 100%;
+    }
+    .edit-group input:focus,
+    .edit-group select:focus,
+    .edit-group textarea:focus {
+      outline: none; border-color: var(--navy);
+      box-shadow: 0 0 0 3px rgba(27,42,59,0.08);
+    }
+    .edit-group textarea { resize: vertical; min-height: 68px; line-height: 1.5; }
+    .edit-select-wrap { position: relative; }
+    .edit-select-wrap::after {
+      content: "▾"; position: absolute; right: 9px; top: 50%;
+      transform: translateY(-50%); color: var(--text-muted);
+      pointer-events: none; font-size: 10px;
+    }
+    .currency-wrap { position: relative; }
+    .currency-wrap input { padding-left: 24px; }
+    .currency-symbol {
+      position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+      font-size: 13px; color: var(--text-muted); pointer-events: none;
+    }
+    .likelihood-badge {
+      display: inline-block; padding: 4px 12px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.4px; margin-top: 2px;
+    }
+    .lh-badge-high   { background: #d4edda; color: #155724; }
+    .lh-badge-medium { background: #fff3cd; color: #856404; }
+    .lh-badge-low    { background: #f8d7da; color: #721c24; }
+
+    .edit-panel-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .btn-save-changes {
+      font-family: Arial, sans-serif; font-size: 13px; font-weight: 700;
+      padding: 8px 22px; background: var(--navy); border: none;
+      border-radius: var(--radius); color: var(--white); cursor: pointer;
+      transition: background 0.15s; display: flex; align-items: center; gap: 7px;
+    }
+    .btn-save-changes:hover:not(:disabled) { background: var(--navy-light); }
+    .btn-save-changes:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-cancel-edit {
+      font-family: Arial, sans-serif; font-size: 13px; font-weight: 700;
+      padding: 8px 18px; background: transparent;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-mid); cursor: pointer; transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-cancel-edit:hover { border-color: var(--navy); color: var(--navy); }
+    .edit-save-msg { font-size: 13px; font-weight: 600; color: var(--success); display: none; }
+    .edit-save-msg.show { display: inline; }
+
+    /* ── Empty / loading ── */
+    .state-row td {
+      text-align: center; padding: 48px 20px;
+      color: var(--text-muted); font-size: 14px;
+    }
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2px solid rgba(27,42,59,0.15); border-top-color: var(--navy);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 8px;
+    }
+    .spinner-sm {
+      width: 13px; height: 13px;
+      border: 2px solid rgba(255,255,255,0.3); border-top-color: var(--white);
+      border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Loading overlay ── */
+    #loading-overlay {
+      position: fixed; inset: 0; background: var(--navy-dark);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; transition: opacity 0.3s;
+    }
+    #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+    .loading-text { color: var(--white); font-size: 15px; font-weight: 700; letter-spacing: 1px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .summary-bar { grid-template-columns: 1fr 1fr; }
+      .topbar { padding: 0 16px; }
+      .topbar-user { display: none; }
+    }
+    @media (max-width: 480px) {
+      .summary-bar { grid-template-columns: 1fr; }
+      .edit-grid { grid-template-columns: 1fr 1fr; }
+      .edit-group.span-3 { grid-column: span 2; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading-overlay">
+    <div class="loading-text">PACIFIC BLUE</div>
+  </div>
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">PB</div>
+      <div>
+        <div class="topbar-title">Pacific Blue Developments</div>
+        <div class="topbar-subtitle">Pipeline</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="topbar-user-email"></span>
+      <a class="btn-new-lead" href="lead-entry.html">+ New Lead</a>
+      <button class="btn-signout" id="btn-signout">Sign Out</button>
+    </div>
+  </header>
+
+  <main class="page-wrapper">
+
+    <div class="page-header">
+      <h1 class="page-title">Pipeline</h1>
+      <p class="page-subtitle">Active project opportunities</p>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="summary-bar">
+      <div class="summary-card">
+        <div class="summary-card-label">Total Opportunities</div>
+        <div class="summary-card-value" id="card-count">—</div>
+        <div class="summary-card-sub">projects in pipeline</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-label">Total Pipeline Value</div>
+        <div class="summary-card-value" id="card-total">—</div>
+        <div class="summary-card-sub">sum of estimated budgets</div>
+      </div>
+      <div class="summary-card linked">
+        <div class="summary-card-label">Weighted Pipeline Value</div>
+        <div class="summary-card-value" id="card-weighted">—</div>
+        <div class="summary-card-sub">budget × likelihood × market</div>
+      </div>
+      <div class="summary-card linked">
+        <div class="summary-card-label">Market Conditions</div>
+        <div class="summary-card-value" id="card-market">—</div>
+        <div class="summary-card-sub">global discount factor</div>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <div class="filter-group search-group">
+        <label for="filter-search">Search</label>
+        <input type="text" id="filter-search" placeholder="Project code or address..." />
+      </div>
+      <div class="filter-group">
+        <label for="filter-phase">Project Phase</label>
+        <div class="select-wrap">
+          <select id="filter-phase">
+            <option value="">All</option>
+            <option value="Sales">Sales</option>
+            <option value="Preliminaries">Preliminaries</option>
+            <option value="Construction">Construction</option>
+            <option value="Completed">Completed</option>
+            <option value="On Hold">On Hold</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-group">
+        <label for="filter-likelihood">Likelihood</label>
+        <div class="select-wrap">
+          <select id="filter-likelihood">
+            <option value="">All</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-group">
+        <label for="filter-fy">Fiscal Year</label>
+        <div class="select-wrap">
+          <select id="filter-fy">
+            <option value="">All</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-clear-filters" id="btn-clear-filters">Clear Filters</button>
+    </div>
+
+    <!-- Summary line -->
+    <div class="summary-line" id="summary-line"></div>
+
+    <!-- Projects table -->
+    <div class="table-card">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Project Code</th>
+              <th>Project Address</th>
+              <th>Type</th>
+              <th>Est. Budget</th>
+              <th>Likelihood %</th>
+              <th>Level</th>
+              <th>Weighted Value</th>
+              <th>Commencement</th>
+              <th>Phase</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="projects-tbody">
+            <tr class="state-row">
+              <td colspan="10"><span class="spinner"></span> Loading pipeline...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script type="module">
+
+    import { auth, db } from "./firebase-config.js";
+
+    import {
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    import {
+      collection, doc, getDoc, getDocs, updateDoc,
+      query, orderBy, where, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── DOM refs ────────────────────────────────────────────────────────────
+    const loadingOverlay  = document.getElementById("loading-overlay");
+    const topbarUserEmail = document.getElementById("topbar-user-email");
+    const btnSignOut      = document.getElementById("btn-signout");
+    const projectsTbody   = document.getElementById("projects-tbody");
+    const summaryLine     = document.getElementById("summary-line");
+    const filterSearch    = document.getElementById("filter-search");
+    const filterPhase     = document.getElementById("filter-phase");
+    const filterLikelihood= document.getElementById("filter-likelihood");
+    const filterFY        = document.getElementById("filter-fy");
+    const btnClearFilters = document.getElementById("btn-clear-filters");
+
+    // ── State ───────────────────────────────────────────────────────────────
+    let allProjects        = [];
+    let marketConditionsPct = 1.0;
+    let openEditId         = null;
+    let currentUserRole    = null;
+    let currentUserId      = null;
+
+    // ── Auth guard ──────────────────────────────────────────────────────────
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) { window.location.href = "login.html"; return; }
+
+      try {
+        const roleDoc = await getDoc(doc(db, "userroles", user.uid));
+        const role    = roleDoc.exists() ? roleDoc.data().role : null;
+        if (role === "supervisor") {
+          window.location.href = "login.html?error=unauthorised";
+          return;
+        }
+        if (!role) {
+          window.location.href = "login.html?error=unauthorised";
+          return;
+        }
+        currentUserRole = role;
+        currentUserId   = user.uid;
+      } catch (e) {
+        window.location.href = "login.html?error=unauthorised";
+        return;
+      }
+
+      topbarUserEmail.textContent = user.email;
+      loadingOverlay.classList.add("hidden");
+      setTimeout(() => loadingOverlay.style.display = "none", 350);
+
+      // Load settings and projects in parallel
+      await Promise.all([loadSettings(), loadProjects()]);
+    });
+
+    // ── Load market conditions from settings/global ─────────────────────────
+    async function loadSettings() {
+      try {
+        const snap = await getDoc(doc(db, "settings", "global"));
+        if (snap.exists() && snap.data().marketConditionsPct !== undefined) {
+          marketConditionsPct = parseFloat(snap.data().marketConditionsPct);
+        }
+      } catch (e) {
+        marketConditionsPct = 1.0;
+      }
+      document.getElementById("card-market").textContent =
+        Math.round(marketConditionsPct * 100) + "%";
+    }
+
+    // ── Load all projects from Firestore ────────────────────────────────────
+    async function loadProjects() {
+      try {
+        const q       = query(collection(db, "projects"), orderBy("likelihoodPct", "desc"));
+        const snapshot = await getDocs(q);
+        allProjects    = [];
+        snapshot.forEach(d => allProjects.push({ id: d.id, ...d.data() }));
+        populateFYFilter();
+        renderTable();
+      } catch (err) {
+        projectsTbody.innerHTML = `
+          <tr class="state-row">
+            <td colspan="10" style="color:var(--danger)">Failed to load projects: ${err.message}</td>
+          </tr>`;
+      }
+    }
+
+    // ── Populate FY filter ──────────────────────────────────────────────────
+    function populateFYFilter() {
+      const fySet = new Set();
+      allProjects.forEach(p => { if (p.fiscalYear) fySet.add(p.fiscalYear); });
+      const sorted = Array.from(fySet).sort().reverse();
+      const cur    = filterFY.value;
+      while (filterFY.options.length > 1) filterFY.remove(1);
+      sorted.forEach(fy => {
+        const o = document.createElement("option");
+        o.value = o.textContent = fy;
+        filterFY.appendChild(o);
+      });
+      if (cur) filterFY.value = cur;
+    }
+
+    // ── Apply filters ───────────────────────────────────────────────────────
+    function getFiltered() {
+      const search = filterSearch.value.trim().toLowerCase();
+      const phase  = filterPhase.value;
+      const lh     = filterLikelihood.value;
+      const fy     = filterFY.value;
+
+      return allProjects.filter(p => {
+        if (search) {
+          const code = (p.projectCode    || "").toLowerCase();
+          const addr = (p.projectAddress || "").toLowerCase();
+          if (!code.includes(search) && !addr.includes(search)) return false;
+        }
+        if (phase && p.projectPhase    !== phase) return false;
+        if (lh    && p.likelihoodLevel !== lh)    return false;
+        if (fy    && p.fiscalYear      !== fy)    return false;
+        return true;
+      });
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+    function formatCurrency(val) {
+      if (val === null || val === undefined || val === "") return "—";
+      return "$" + Number(val).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+    }
+
+    function formatMonth(val) {
+      if (!val) return "—";
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const parts  = val.split("-");
+      if (parts.length < 2) return val;
+      return months[parseInt(parts[1]) - 1] + " " + parts[0];
+    }
+
+    function likelihoodClass(pct) {
+      const p = Math.round((pct || 0) * 100);
+      if (p >= 70) return "lh-high";
+      if (p >= 40) return "lh-medium";
+      return "lh-low";
+    }
+
+    function likelihoodBadgeClass(level) {
+      const map = { High: "badge-high", Medium: "badge-medium", Low: "badge-low" };
+      return map[level] || "badge-medium";
+    }
+
+    function phaseBadgeClass(phase) {
+      const map = {
+        "Sales":          "badge-sales",
+        "Preliminaries":  "badge-preliminaries",
+        "Construction":   "badge-construction",
+        "Completed":      "badge-completed",
+        "On Hold":        "badge-onhold",
+        "Cancelled":      "badge-cancelled"
+      };
+      return map[phase] || "badge-sales";
+    }
+
+    function getLikelihoodLevel(pct) {
+      if (pct >= 70) return "High";
+      if (pct >= 40) return "Medium";
+      return "Low";
+    }
+
+    // ── Update summary cards ────────────────────────────────────────────────
+    function updateSummaryCards(filtered) {
+      const count    = filtered.length;
+      const total    = filtered.reduce((s, p) => s + (p.estimatedBudget || 0), 0);
+      const weighted = filtered.reduce((s, p) => {
+        return s + (p.estimatedBudget || 0) * (p.likelihoodPct || 0) * marketConditionsPct;
+      }, 0);
+
+      document.getElementById("card-count").textContent   = count;
+      document.getElementById("card-total").textContent   = formatCurrency(total);
+      document.getElementById("card-weighted").textContent= formatCurrency(weighted);
+    }
+
+    // ── Render table ────────────────────────────────────────────────────────
+    function renderTable() {
+      const filtered = getFiltered();
+
+      summaryLine.innerHTML =
+        `Showing <strong>${filtered.length}</strong> of <strong>${allProjects.length}</strong> opportunit${allProjects.length !== 1 ? "ies" : "y"}`;
+
+      updateSummaryCards(filtered);
+
+      if (filtered.length === 0) {
+        const msg = allProjects.length === 0
+          ? "No projects in the pipeline yet."
+          : "No projects match the current filters.";
+        projectsTbody.innerHTML = `<tr class="state-row"><td colspan="10">${msg}</td></tr>`;
+        return;
+      }
+
+      if (openEditId && !filtered.find(p => p.id === openEditId)) openEditId = null;
+
+      let html = "";
+      filtered.forEach(proj => {
+        const isOpen   = openEditId === proj.id;
+        const pct      = Math.round((proj.likelihoodPct || 0) * 100);
+        const weighted = (proj.estimatedBudget || 0) * (proj.likelihoodPct || 0) * marketConditionsPct;
+        const lhCls    = likelihoodClass(proj.likelihoodPct);
+
+        html += `
+          <tr class="${isOpen ? "row-active" : ""}" data-id="${proj.id}">
+            <td><strong>${proj.projectCode || "—"}</strong></td>
+            <td class="muted">${proj.projectAddress || "—"}</td>
+            <td>${proj.projectType || "—"}</td>
+            <td>${formatCurrency(proj.estimatedBudget)}</td>
+            <td class="${lhCls}">${pct}%</td>
+            <td><span class="badge ${likelihoodBadgeClass(proj.likelihoodLevel)}">${proj.likelihoodLevel || "—"}</span></td>
+            <td>${formatCurrency(weighted)}</td>
+            <td class="muted">${formatMonth(proj.expectedCommencementMonth)}</td>
+            <td><span class="badge ${phaseBadgeClass(proj.projectPhase)}">${proj.projectPhase || "—"}</span></td>
+            <td>
+              <button
+                class="btn-view-edit ${isOpen ? "active" : ""}"
+                onclick="toggleEditPanel('${proj.id}')"
+              >${isOpen ? "Close" : "View / Edit"}</button>
+            </td>
+          </tr>`;
+
+        if (isOpen) html += buildEditPanel(proj);
+      });
+
+      projectsTbody.innerHTML = html;
+    }
+
+    // ── Build edit panel ────────────────────────────────────────────────────
+    function buildEditPanel(proj) {
+      const pct = Math.round((proj.likelihoodPct || 0) * 100);
+      const lhLevel = getLikelihoodLevel(pct);
+      const lhBadgeCls = { High: "lh-badge-high", Medium: "lh-badge-medium", Low: "lh-badge-low" }[lhLevel] || "lh-badge-medium";
+
+      const phases   = ["Sales","Preliminaries","Construction","Completed","On Hold","Cancelled"];
+      const phaseOpts = phases.map(p => `<option value="${p}" ${proj.projectPhase===p?"selected":""}>${p}</option>`).join("");
+
+      return `
+        <tr class="edit-panel-row">
+          <td class="edit-panel-cell" colspan="10">
+            <div class="edit-panel">
+              <div class="edit-panel-title">Edit — ${proj.projectCode || "Project"}</div>
+              <div class="edit-grid">
+
+                <div class="edit-group">
+                  <label>Project Phase</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-projectPhase-${proj.id}">${phaseOpts}</select>
+                  </div>
+                </div>
+
+                <div class="edit-group">
+                  <label>Likelihood %</label>
+                  <input
+                    type="number"
+                    id="ep-likelihoodPct-${proj.id}"
+                    value="${pct}"
+                    min="0" max="100" step="5"
+                    oninput="updateEpLikelihood('${proj.id}')"
+                  />
+                </div>
+
+                <div class="edit-group">
+                  <label>Likelihood Level</label>
+                  <div style="padding-top:6px">
+                    <span class="likelihood-badge ${lhBadgeCls}" id="ep-lh-badge-${proj.id}">${lhLevel}</span>
+                  </div>
+                </div>
+
+                <div class="edit-group">
+                  <label>Expected Commencement</label>
+                  <input type="month" id="ep-expectedCommencement-${proj.id}"
+                    value="${proj.expectedCommencementMonth || ""}" />
+                </div>
+
+                <div class="edit-group">
+                  <label>Estimated Budget (ex GST)</label>
+                  <div class="currency-wrap">
+                    <span class="currency-symbol">$</span>
+                    <input type="number" id="ep-estimatedBudget-${proj.id}"
+                      value="${proj.estimatedBudget !== null && proj.estimatedBudget !== undefined ? proj.estimatedBudget : ""}"
+                      min="0" step="1000" />
+                  </div>
+                </div>
+
+                <div class="edit-group">
+                  <label>Sales Person</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-salesPerson-${proj.id}">
+                      <option value="">— Unassigned —</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="edit-group">
+                  <label>Consult Date</label>
+                  <input type="date" id="ep-consultDate-${proj.id}" value="${proj.consultDate || ""}" />
+                </div>
+
+                <div class="edit-group">
+                  <label>Concept Date</label>
+                  <input type="date" id="ep-conceptDate-${proj.id}" value="${proj.conceptDate || ""}" />
+                </div>
+
+                <div class="edit-group">
+                  <label>Proposal Date</label>
+                  <input type="date" id="ep-proposalDate-${proj.id}" value="${proj.proposalDate || ""}" />
+                </div>
+
+                <div class="edit-group">
+                  <label>Preliminary Target Date</label>
+                  <input type="date" id="ep-prelimDate-${proj.id}" value="${proj.preliminaryTargetDate || ""}" />
+                </div>
+
+                <div class="edit-group span-3">
+                  <label>Pipeline Notes</label>
+                  <textarea id="ep-pipelineNotes-${proj.id}">${proj.pipelineNotes || ""}</textarea>
+                </div>
+
+              </div>
+
+              <div class="edit-panel-footer">
+                <button class="btn-save-changes" id="ep-save-btn-${proj.id}"
+                  onclick="saveProjectChanges('${proj.id}')">Save Changes</button>
+                <button class="btn-cancel-edit" onclick="closeEditPanel()">Cancel</button>
+                <span class="edit-save-msg" id="ep-save-msg-${proj.id}">&#10003; Changes saved</span>
+              </div>
+            </div>
+          </td>
+        </tr>`;
+    }
+
+    // ── Populate sales staff dropdown in edit panel ─────────────────────────
+    async function populateSalesDropdown(projId, currentSalesPersonId) {
+      const select = document.getElementById(`ep-salesPerson-${projId}`);
+      if (!select) return;
+      try {
+        const q    = query(collection(db, "staffmembers"), where("isActive","==",true), orderBy("lastName","asc"));
+        const snap = await getDocs(q);
+        snap.forEach(d => {
+          const s = d.data();
+          if (["Sales","Director","sales","director"].includes(s.role)) {
+            const opt = document.createElement("option");
+            opt.value       = d.id;
+            opt.textContent = ((s.firstName||"") + " " + (s.lastName||"")).trim();
+            if (d.id === currentSalesPersonId) opt.selected = true;
+            select.appendChild(opt);
+          }
+        });
+      } catch (e) { /* non-fatal */ }
+    }
+
+    // ── Toggle edit panel ───────────────────────────────────────────────────
+    window.toggleEditPanel = function(projId) {
+      openEditId = openEditId === projId ? null : projId;
+      renderTable();
+      if (openEditId) {
+        const proj = allProjects.find(p => p.id === projId);
+        if (proj) populateSalesDropdown(projId, proj.salesPersonId || "");
+      }
+    };
+
+    window.closeEditPanel = function() {
+      openEditId = null;
+      renderTable();
+    };
+
+    // ── Live likelihood badge update in edit panel ──────────────────────────
+    window.updateEpLikelihood = function(projId) {
+      const pct    = parseInt(document.getElementById(`ep-likelihoodPct-${projId}`)?.value) || 0;
+      const level  = getLikelihoodLevel(pct);
+      const badge  = document.getElementById(`ep-lh-badge-${projId}`);
+      if (!badge) return;
+      const clsMap = { High: "lh-badge-high", Medium: "lh-badge-medium", Low: "lh-badge-low" };
+      badge.textContent = level;
+      badge.className   = "likelihood-badge " + (clsMap[level] || "lh-badge-medium");
+    };
+
+    // ── Save project changes ────────────────────────────────────────────────
+    window.saveProjectChanges = async function(projId) {
+      const saveBtn = document.getElementById(`ep-save-btn-${projId}`);
+      const saveMsg = document.getElementById(`ep-save-msg-${projId}`);
+      if (!saveBtn) return;
+
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner-sm"></span> Saving...';
+
+      try {
+        const pctVal    = parseInt(document.getElementById(`ep-likelihoodPct-${projId}`).value) || 0;
+        const budgetVal = document.getElementById(`ep-estimatedBudget-${projId}`).value;
+
+        const updates = {
+          projectPhase:              document.getElementById(`ep-projectPhase-${projId}`).value,
+          likelihoodPct:             pctVal / 100,
+          likelihoodLevel:           getLikelihoodLevel(pctVal),
+          expectedCommencementMonth: document.getElementById(`ep-expectedCommencement-${projId}`).value,
+          estimatedBudget:           budgetVal ? parseFloat(budgetVal) : null,
+          salesPersonId:             document.getElementById(`ep-salesPerson-${projId}`).value,
+          consultDate:               document.getElementById(`ep-consultDate-${projId}`).value,
+          conceptDate:               document.getElementById(`ep-conceptDate-${projId}`).value,
+          proposalDate:              document.getElementById(`ep-proposalDate-${projId}`).value,
+          preliminaryTargetDate:     document.getElementById(`ep-prelimDate-${projId}`).value,
+          pipelineNotes:             document.getElementById(`ep-pipelineNotes-${projId}`).value.trim(),
+          updatedAt:                 serverTimestamp()
+        };
+
+        await updateDoc(doc(db, "projects", projId), updates);
+
+        // Update local data
+        const idx = allProjects.findIndex(p => p.id === projId);
+        if (idx > -1) allProjects[idx] = { ...allProjects[idx], ...updates };
+
+        saveMsg.style.display = "inline";
+        setTimeout(() => { saveMsg.style.display = "none"; }, 3000);
+
+        renderTable();
+
+      } catch (err) {
+        console.error("Error saving project:", err);
+        alert("Failed to save: " + err.message);
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled  = false;
+          saveBtn.innerHTML = "Save Changes";
+        }
+      }
+    };
+
+    // ── Filter listeners ────────────────────────────────────────────────────
+    filterSearch.addEventListener("input",     renderTable);
+    filterPhase.addEventListener("change",     renderTable);
+    filterLikelihood.addEventListener("change",renderTable);
+    filterFY.addEventListener("change",        renderTable);
+    btnClearFilters.addEventListener("click",  () => {
+      filterSearch.value = ""; filterPhase.value = "";
+      filterLikelihood.value = ""; filterFY.value = "";
+      renderTable();
+    });
+
+    btnSignOut.addEventListener("click", async () => {
+      await signOut(auth);
+      window.location.href = "login.html";
+    });
+
+  </script>
+</body>
+</html>
