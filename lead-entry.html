@@ -16,7 +16,7 @@
     - Derives fiscalYear and reportingPeriod from enquiryDate (Australian FY)
     - Parses suburb and state from address string
     - Writes document to Firestore leads collection
-    - Shows success message and clears form
+    - Shows solid green success banner for 5 seconds, then clears form
 
   Conventions:
     - Currency stored ex-GST
@@ -46,9 +46,6 @@
       --danger:       #c0392b;
       --danger-bg:    #fdf0ef;
       --danger-border:#f1b9b5;
-      --success:      #1a7a4a;
-      --success-bg:   #eafaf2;
-      --success-border:#b2dfcd;
       --radius:       6px;
       --radius-lg:    10px;
       --shadow-sm:    0 1px 3px rgba(0,0,0,0.06);
@@ -160,31 +157,54 @@
       margin-top: 4px;
     }
 
-    /* ── Alert messages ── */
-    .alert {
-      padding: 13px 16px;
-      border-radius: var(--radius);
-      font-size: 13.5px;
+    /* ── Success banner ── */
+    /* Solid green with white text. Hidden by default via display:none.
+       Shown by adding class "show". resetForm() does NOT touch this element —
+       only the 5-second setTimeout hides it. */
+    #banner-success {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
       margin-bottom: 24px;
+      background: #1a7a4a;
+      border-radius: var(--radius);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.5;
+      box-shadow: 0 2px 8px rgba(26,122,74,0.3);
+    }
+    #banner-success.show { display: flex; }
+
+    .banner-icon {
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    /* ── Error alert ── */
+    #alert-error {
       display: none;
       align-items: flex-start;
       gap: 10px;
-      line-height: 1.5;
-      font-weight: 500;
-    }
-    .alert.show { display: flex; }
-
-    .alert-success {
-      background: var(--success-bg);
-      border: 1px solid var(--success-border);
-      color: var(--success);
-    }
-
-    .alert-error {
-      background: var(--danger-bg);
-      border: 1px solid var(--danger-border);
+      padding: 13px 16px;
+      margin-bottom: 24px;
+      background: #fdf0ef;
+      border: 1px solid #f1b9b5;
+      border-radius: var(--radius);
       color: var(--danger);
+      font-size: 13.5px;
+      font-weight: 500;
+      line-height: 1.5;
     }
+    #alert-error.show { display: flex; }
 
     /* ── Form card ── */
     .form-card {
@@ -467,14 +487,15 @@
       <p class="page-subtitle">Record a new enquiry for Pacific Blue Developments</p>
     </div>
 
-    <!-- Success alert -->
-    <div class="alert alert-success" id="alert-success">
-      <span>&#10003;</span>
-      <span id="alert-success-msg">Lead saved successfully.</span>
+    <!-- Success banner: solid green, white text, shown for 5s after save.
+         resetForm() does NOT touch this element. -->
+    <div id="banner-success">
+      <div class="banner-icon">&#10003;</div>
+      <span id="banner-success-msg">Lead saved successfully.</span>
     </div>
 
     <!-- Error alert -->
-    <div class="alert alert-error" id="alert-error">
+    <div id="alert-error">
       <span>&#10005;</span>
       <span id="alert-error-msg">Please correct the errors below.</span>
     </div>
@@ -704,8 +725,8 @@
     const btnSignOut      = document.getElementById("btn-signout");
     const btnSave         = document.getElementById("btn-save");
     const btnClear        = document.getElementById("btn-clear");
-    const alertSuccess    = document.getElementById("alert-success");
-    const alertSuccessMsg = document.getElementById("alert-success-msg");
+    const bannerSuccess   = document.getElementById("banner-success");
+    const bannerSuccessMsg= document.getElementById("banner-success-msg");
     const alertError      = document.getElementById("alert-error");
     const alertErrorMsg   = document.getElementById("alert-error-msg");
 
@@ -785,14 +806,29 @@
       };
     }
 
-    // ── Clear all alerts ────────────────────────────────────────────────────
-    function clearAlerts() {
-      alertSuccess.classList.remove("show");
+    // ── Show success banner ─────────────────────────────────────────────────
+    // Displays the solid green banner and hides it after 5 seconds.
+    // This function is completely independent of resetForm() — the two do not
+    // call each other, ensuring the banner cannot be hidden prematurely.
+    let successTimer = null;
+    function showSuccessBanner(message) {
+      // Cancel any existing timer so a rapid double-save doesn't cause issues
+      if (successTimer) clearTimeout(successTimer);
+      bannerSuccessMsg.textContent = message;
+      bannerSuccess.classList.add("show");
+      successTimer = setTimeout(() => {
+        bannerSuccess.classList.remove("show");
+        successTimer = null;
+      }, 5000);
+    }
+
+    // ── Hide error alert ────────────────────────────────────────────────────
+    function hideErrorAlert() {
       alertError.classList.remove("show");
     }
 
-    // ── Reset form to blank state ───────────────────────────────────────────
-    function resetForm() {
+    // ── Reset form fields only — does NOT touch the success banner ──────────
+    function resetFormFields() {
       document.querySelectorAll("input, select, textarea").forEach(el => {
         if (el.tagName === "SELECT") {
           el.selectedIndex = 0;
@@ -805,7 +841,14 @@
       document.querySelectorAll(".field-error").forEach(el => el.classList.remove("show"));
       const today = new Date().toISOString().split("T")[0];
       document.getElementById("enquiryDate").value = today;
-      clearAlerts();
+    }
+
+    // ── Clear Form button handler — resets fields AND hides both alerts ─────
+    function handleClear() {
+      resetFormFields();
+      bannerSuccess.classList.remove("show");
+      if (successTimer) { clearTimeout(successTimer); successTimer = null; }
+      hideErrorAlert();
     }
 
     // ── Validation ──────────────────────────────────────────────────────────
@@ -851,7 +894,7 @@
 
     // ── Save lead to Firestore ──────────────────────────────────────────────
     async function handleSave() {
-      clearAlerts();
+      hideErrorAlert();
 
       if (!validate()) {
         alertErrorMsg.textContent = "Please fill in all required fields before saving.";
@@ -862,7 +905,7 @@
       }
 
       btnSave.disabled = true;
-      btnSave.innerHTML = `<span class="spinner"></span> Saving...`;
+      btnSave.innerHTML = '<span class="spinner"></span> Saving...';
 
       try {
         const enquiryDate = document.getElementById("enquiryDate").value;
@@ -900,18 +943,23 @@
         const docRef = await addDoc(collection(db, "leads"), leadData);
         console.log("Lead saved:", docRef.id);
 
-        // Show success message, then reset form after 4 seconds so the message is readable
-        const fullName = `${leadData.firstName} ${leadData.lastName}`;
-        alertSuccessMsg.textContent =
-          `Lead for ${fullName} saved successfully — ` +
-          `${leadData.fiscalYear} · ${leadData.reportingPeriod}.`;
-        alertSuccess.classList.add("show");
+        // 1. Scroll to top so the banner is visible
         window.scrollTo({ top: 0, behavior: "smooth" });
 
-        // Delay form reset by 4 seconds so the user can read the success message
+        // 2. Show the solid green success banner for 5 seconds.
+        //    resetFormFields() is called separately after the same delay
+        //    and does NOT touch the banner.
+        const fullName = leadData.firstName + " " + leadData.lastName;
+        showSuccessBanner(
+          "Lead saved for " + fullName +
+          " — " + leadData.fiscalYear +
+          " · " + leadData.reportingPeriod
+        );
+
+        // 3. Reset the form fields after 5 seconds (matches banner duration)
         setTimeout(() => {
-          resetForm();
-        }, 4000);
+          resetFormFields();
+        }, 5000);
 
       } catch (err) {
         console.error("Error saving lead:", err);
@@ -925,7 +973,7 @@
 
     // ── Event listeners ─────────────────────────────────────────────────────
     btnSave.addEventListener("click", handleSave);
-    btnClear.addEventListener("click", resetForm);
+    btnClear.addEventListener("click", handleClear);
 
     btnSignOut.addEventListener("click", async () => {
       await signOut(auth);
@@ -938,7 +986,7 @@
         el.classList.remove("error");
         const errEl = document.getElementById("err-" + el.id);
         if (errEl) errEl.classList.remove("show");
-        // Clear contact error when either phone or email is filled
+        // Clear the contact error when either phone or email is filled
         if (el.id === "phone" || el.id === "email") {
           const phone = document.getElementById("phone").value.trim();
           const email = document.getElementById("email").value.trim();
