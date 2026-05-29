@@ -1,0 +1,145 @@
+// =============================================================================
+// firestore.rules
+// Pacific Blue Developments — Business Management Application
+// -----------------------------------------------------------------------------
+// Firestore Security Rules for Phase 1.
+//
+// Role values stored as custom claims on Firebase Auth user object:
+//   request.auth.token.role == "director"
+//   request.auth.token.role == "sales"
+//   request.auth.token.role == "supervisor"
+//   request.auth.token.role == "accounts"
+//
+// Access matrix:
+//   directors   — full read/write on all collections
+//   sales       — create + read leads; read projects + contacts; no staffmembers
+//   supervisors — read projects; update specific project fields only; no leads
+//   accounts    — read projects only
+//
+// Deploy with:  firebase deploy --only firestore:rules
+// =============================================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helper functions
+    // -------------------------------------------------------------------------
+
+    // Returns true if the request is from an authenticated user
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Returns true if the authenticated user has the Director role
+    function isDirector() {
+      return isAuthenticated() && request.auth.token.role == "director";
+    }
+
+    // Returns true if the authenticated user has the Sales role
+    function isSales() {
+      return isAuthenticated() && request.auth.token.role == "sales";
+    }
+
+    // Returns true if the authenticated user has the Supervisor role
+    function isSupervisor() {
+      return isAuthenticated() && request.auth.token.role == "supervisor";
+    }
+
+    // Returns true if the authenticated user has the Accounts role
+    function isAccounts() {
+      return isAuthenticated() && request.auth.token.role == "accounts";
+    }
+
+    // Returns true if the incoming write only touches fields a Supervisor is
+    // permitted to update on a project document.
+    function supervisorFieldsOnly() {
+      let allowedFields = [
+        "currentStage",
+        "nextStage",
+        "nextStageDate",
+        "pipelineNotes",
+        "updatedAt"
+      ];
+      // affectedKeys() returns the set of keys being written in this request.
+      // Every key in the write must be in the allowed list.
+      return request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(allowedFields);
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: leads
+    // -------------------------------------------------------------------------
+    // Directors : full read/write
+    // Sales     : create and read
+    // Supervisor: no access
+    // Accounts  : no access
+    // -------------------------------------------------------------------------
+    match /leads/{leadId} {
+
+      allow read: if isDirector() || isSales();
+
+      // Sales can create new leads; Directors can create as well
+      allow create: if isDirector() || isSales();
+
+      // Only Directors can update or delete leads
+      allow update, delete: if isDirector();
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: projects
+    // -------------------------------------------------------------------------
+    // Directors  : full read/write
+    // Sales      : read only
+    // Supervisors: read; update allowed fields only; no create/delete
+    // Accounts   : read only
+    // -------------------------------------------------------------------------
+    match /projects/{projectId} {
+
+      allow read: if isDirector() || isSales() || isSupervisor() || isAccounts();
+
+      // Only Directors can create or delete projects
+      allow create, delete: if isDirector();
+
+      // Directors can update anything.
+      // Supervisors can update only the permitted subset of fields.
+      allow update: if isDirector()
+                    || (isSupervisor() && supervisorFieldsOnly());
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: contacts
+    // -------------------------------------------------------------------------
+    // Directors : full read/write
+    // Sales     : read only
+    // Supervisor: no access
+    // Accounts  : no access
+    // -------------------------------------------------------------------------
+    match /contacts/{contactId} {
+
+      allow read: if isDirector() || isSales();
+
+      allow create, update, delete: if isDirector();
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: staffmembers
+    // -------------------------------------------------------------------------
+    // Directors : full read/write
+    // All others: no access
+    // -------------------------------------------------------------------------
+    match /staffmembers/{staffId} {
+
+      allow read, write: if isDirector();
+    }
+
+    // -------------------------------------------------------------------------
+    // Catch-all: deny everything not explicitly allowed above
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<!--
+  admin-setup.html
+  Pacific Blue Developments — Business Management Application
+  ─────────────────────────────────────────────────────────────
+  Admin page for Directors only.
+  Allows:
+    1. Creating new Firebase Auth user accounts with role assignment
+    2. Viewing all existing staff members from Firestore
+
+  Access control:
+    - On page load, checks Firebase Auth for a signed-in user.
+    - Reads the ID token custom claim "role" — must equal "director".
+    - Non-directors and unauthenticated users are redirected to login.html.
+
+  Role assignment works via a Cloud Function (setUserRole) that must be
+  deployed separately. The function receives { uid, role } and sets the
+  custom claim on the Auth user. See comments in the createUser() function.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Setup — Pacific Blue Developments</title>
+
+  <style>
+    /* ── Design tokens ── */
+    :root {
+      --navy:       #1B2A3B;
+      --navy-light: #243548;
+      --navy-dark:  #111d2b;
+      --gold:       #B8860B;
+      --gold-light: #d4a017;
+      --white:      #ffffff;
+      --off-white:  #f5f6f8;
+      --border:     #dde1e7;
+      --text:       #1B2A3B;
+      --text-muted: #6b7a8d;
+      --danger:     #c0392b;
+      --success:    #1a7a4a;
+      --radius:     6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--off-white);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Top navigation bar ── */
+    .topbar {
+      background: var(--navy);
+      color: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 64px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .topbar-logo {
+      width: 36px;
+      height: 36px;
+      background: var(--gold);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--navy);
+      letter-spacing: 0.5px;
+    }
+    .topbar-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .topbar-subtitle {
+      font-size: 12px;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .topbar-user {
+      font-size: 13px;
+      color: rgba(255,255,255,0.75);
+    }
+    .btn-signout {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      color: var(--white);
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-signout:hover { background: rgba(255,255,255,0.1); }
+
+    /* ── Page container ── */
+    .container {
+      max-width: 1100px;
+      margin: 40px auto;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .card-header {
+      background: var(--navy);
+      color: var(--white);
+      padding: 16px 24px;
+      border-radius: var(--radius) var(--radius) 0 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-header-icon {
+      width: 30px;
+      height: 30px;
+      background: var(--gold);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+    }
+    .card-header h2 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .card-body { padding: 24px; }
+
+    /* ── Form elements ── */
+    .form-group { margin-bottom: 18px; }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--navy);
+      letter-spacing: 0.2px;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 9px 12px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--white);
+      color: var(--text);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      appearance: none;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--navy);
+      box-shadow: 0 0 0 3px rgba(27,42,59,0.1);
+    }
+    .select-wrapper {
+      position: relative;
+    }
+    .select-wrapper::after {
+      content: "▾";
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      font-size: 12px;
+    }
+    .form-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      width: 100%;
+      padding: 11px;
+      background: var(--navy);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius);
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--navy-light); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ── Alert messages ── */
+    .alert {
+      padding: 11px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      margin-bottom: 18px;
+      display: none;
+    }
+    .alert.show { display: block; }
+    .alert-success {
+      background: #eafaf2;
+      border: 1px solid #b2dfcd;
+      color: var(--success);
+    }
+    .alert-error {
+      background: #fdf0ef;
+      border: 1px solid #f1b9b5;
+      color: var(--danger);
+    }
+    .alert-info {
+      background: #eef2f7;
+      border: 1px solid #c9d5e3;
+      color: var(--navy);
+    }
+
+    /* ── Staff list table ── */
+    .staff-table-wrapper {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+    thead tr {
+      background: var(--off-white);
+      border-bottom: 2px solid var(--border);
+    }
+    thead th {
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 700;
+      color: var(--navy);
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    tbody tr:hover { background: var(--off-white); }
+    tbody tr:last-child { border-bottom: none; }
+    td {
+      padding: 11px 14px;
+      vertical-align: middle;
+    }
+
+    /* ── Role badge ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    .badge-director  { background: var(--navy);       color: var(--white); }
+    .badge-sales     { background: #e8f4fd;            color: #1565c0; }
+    .badge-supervisor{ background: #fff8e6;            color: #8a6000; }
+    .badge-accounts  { background: #eaf7ef;            color: var(--success); }
+    .badge-other     { background: var(--off-white);   color: var(--text-muted); border: 1px solid var(--border); }
+
+    /* ── Status dot ── */
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .status-active   { background: #27ae60; }
+    .status-inactive { background: #bdc3c7; }
+
+    /* ── Empty / loading states ── */
+    .table-empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* ── Section divider in form ── */
+    .form-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 20px 0;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: var(--white);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Loading overlay ── */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--navy-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.3s;
+    }
+    #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+    .loading-text {
+      color: var(--white);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 860px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading overlay shown while auth state is checked -->
+  <div id="loading-overlay">
+    <div class="loading-text">PACIFIC BLUE</div>
+  </div>
+
+  <!-- Top navigation bar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">PB</div>
+      <div>
+        <div class="topbar-title">Pacific Blue Developments</div>
+        <div class="topbar-subtitle">Admin Setup</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="topbar-user-email"></span>
+      <button class="btn-signout" id="btn-signout">Sign Out</button>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="container">
+
+    <!-- LEFT COLUMN: Create User form -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-header-icon">👤</div>
+        <h2>Create New Staff Account</h2>
+      </div>
+      <div class="card-body">
+
+        <!-- Success / error feedback -->
+        <div class="alert alert-success" id="create-success"></div>
+        <div class="alert alert-error"   id="create-error"></div>
+        <div class="alert alert-info" id="create-info">
+          Creating a new account will send a sign-in email to the user.
+          You must also create a matching record in the <strong>staffmembers</strong>
+          collection in Firestore.
+        </div>
+
+        <!-- Create user form -->
+        <div class="form-group">
+          <label for="new-first-name">First Name</label>
+          <input type="text" id="new-first-name" placeholder="e.g. Jane" autocomplete="off" />
+        </div>
+
+        <div class="form-group">
+          <label for="new-last-name">Last Name</label>
+          <input type="text" id="new-last-name" placeholder="e.g. Smith" autocomplete="off" />
+        </div>
+
+        <div class="form-group">
+          <label for="new-email">Email Address</label>
+          <input type="email" id="new-email" placeholder="jane.smith@example.com" autocomplete="off" />
+        </div>
+
+        <div class="form-group">
+          <label for="new-password">Temporary Password</label>
+          <input type="password" id="new-password" placeholder="Minimum 8 characters" autocomplete="new-password" />
+          <p class="form-hint">The user should change this on first login.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="new-role">Application Role</label>
+          <div class="select-wrapper">
+            <select id="new-role">
+              <option value="">— Select a role —</option>
+              <option value="director">Director</option>
+              <option value="sales">Sales</option>
+              <option value="supervisor">Supervisor</option>
+              <option value="accounts">Accounts</option>
+            </select>
+          </div>
+          <p class="form-hint">
+            This sets the custom claim used by Firestore security rules.
+          </p>
+        </div>
+
+        <hr class="form-divider" />
+
+        <button class="btn-primary" id="btn-create-user">
+          Create Account
+        </button>
+
+        <!--
+          NOTE FOR DEVELOPERS:
+          ─────────────────────────────────────────────────────────────────
+          Setting custom claims (user roles) requires a backend operation.
+          You must deploy a Firebase Cloud Function named "setUserRole" that:
+            1. Verifies the calling user is a Director
+            2. Accepts { uid: string, role: string }
+            3. Calls admin.auth().setCustomUserClaims(uid, { role })
+
+          Example Cloud Function (Node.js):
+          ─────────────────────────────────────────────────────────────────
+          exports.setUserRole = onCall(async (request) => {
+            const callerRole = request.auth.token.role;
+            if (callerRole !== "director") {
+              throw new HttpsError("permission-denied", "Directors only.");
+            }
+            const { uid, role } = request.data;
+            await admin.auth().setCustomUserClaims(uid, { role });
+            return { success: true };
+          });
+          ─────────────────────────────────────────────────────────────────
+          Until the function is deployed, role assignment will show a warning
+          but the account will still be created.
+        -->
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: Staff members list -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-header-icon">👥</div>
+        <h2>Staff Members</h2>
+      </div>
+      <div class="card-body" style="padding: 0;">
+        <div class="staff-table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Email</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="staff-table-body">
+              <tr>
+                <td colspan="4" class="table-empty">Loading staff members…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       Firebase SDK (ES Modules via CDN)
+       ───────────────────────────────────────────────────────────────────── -->
+  <script type="module">
+
+    // Import Firebase services from the central config file
+    import { auth, db } from "./firebase-config.js";
+
+    import {
+      onAuthStateChanged,
+      signOut,
+      createUserWithEmailAndPassword
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    import {
+      collection,
+      getDocs,
+      addDoc,
+      serverTimestamp,
+      query,
+      orderBy
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    import {
+      getFunctions,
+      httpsCallable
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+
+    // ── DOM references ──────────────────────────────────────────────────────
+    const loadingOverlay  = document.getElementById("loading-overlay");
+    const topbarEmail     = document.getElementById("topbar-user-email");
+    const btnSignOut      = document.getElementById("btn-signout");
+    const btnCreateUser   = document.getElementById("btn-create-user");
+    const staffTableBody  = document.getElementById("staff-table-body");
+
+    const inputFirstName  = document.getElementById("new-first-name");
+    const inputLastName   = document.getElementById("new-last-name");
+    const inputEmail      = document.getElementById("new-email");
+    const inputPassword   = document.getElementById("new-password");
+    const selectRole      = document.getElementById("new-role");
+
+    const alertSuccess    = document.getElementById("create-success");
+    const alertError      = document.getElementById("create-error");
+    const alertInfo       = document.getElementById("create-info");
+
+    // ── Helper: show/hide alerts ────────────────────────────────────────────
+    function showAlert(el, message) {
+      el.textContent = message;
+      el.classList.add("show");
+    }
+    function clearAlerts() {
+      [alertSuccess, alertError].forEach(el => {
+        el.textContent = "";
+        el.classList.remove("show");
+      });
+    }
+
+    // ── Helper: role badge markup ───────────────────────────────────────────
+    function roleBadge(role) {
+      const map = {
+        Director:       "badge-director",
+        Sales:          "badge-sales",
+        Supervisor:     "badge-supervisor",
+        Accounts:       "badge-accounts",
+        "Contract Admin": "badge-other",
+        Administration: "badge-other",
+      };
+      const cls = map[role] || "badge-other";
+      return `<span class="badge ${cls}">${role || "—"}</span>`;
+    }
+
+    // ── Load staff members from Firestore ───────────────────────────────────
+    async function loadStaffMembers() {
+      try {
+        const q = query(
+          collection(db, "staffmembers"),
+          orderBy("lastName", "asc")
+        );
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          staffTableBody.innerHTML =
+            `<tr><td colspan="4" class="table-empty">No staff members found.</td></tr>`;
+          return;
+        }
+
+        let rows = "";
+        snapshot.forEach(doc => {
+          const s = doc.data();
+          const name    = `${s.firstName || ""} ${s.lastName || ""}`.trim() || "—";
+          const email   = s.email || "—";
+          const status  = s.isActive
+            ? `<span class="status-dot status-active"></span>Active`
+            : `<span class="status-dot status-inactive"></span>Inactive`;
+
+          rows += `
+            <tr>
+              <td><strong>${name}</strong></td>
+              <td>${roleBadge(s.role)}</td>
+              <td style="color:var(--text-muted)">${email}</td>
+              <td style="font-size:13px">${status}</td>
+            </tr>`;
+        });
+        staffTableBody.innerHTML = rows;
+
+      } catch (err) {
+        staffTableBody.innerHTML =
+          `<tr><td colspan="4" class="table-empty" style="color:var(--danger)">
+            Failed to load staff: ${err.message}
+          </td></tr>`;
+      }
+    }
+
+    // ── Create user account ─────────────────────────────────────────────────
+    async function createUser() {
+      clearAlerts();
+
+      // Basic validation
+      const firstName = inputFirstName.value.trim();
+      const lastName  = inputLastName.value.trim();
+      const email     = inputEmail.value.trim();
+      const password  = inputPassword.value;
+      const role      = selectRole.value;
+
+      if (!firstName || !lastName) {
+        showAlert(alertError, "Please enter the staff member's first and last name.");
+        return;
+      }
+      if (!email) {
+        showAlert(alertError, "Please enter an email address.");
+        return;
+      }
+      if (password.length < 8) {
+        showAlert(alertError, "Password must be at least 8 characters.");
+        return;
+      }
+      if (!role) {
+        showAlert(alertError, "Please select a role for this user.");
+        return;
+      }
+
+      // Disable button while working
+      btnCreateUser.disabled = true;
+      btnCreateUser.innerHTML = `<span class="spinner"></span>Creating account…`;
+
+      try {
+        // Step 1: Create the Firebase Auth user account
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const newUid = userCredential.user.uid;
+
+        // Step 2: Attempt to set the custom claim via Cloud Function
+        // This requires the "setUserRole" function to be deployed.
+        let roleSet = false;
+        try {
+          const functions    = getFunctions();
+          const setUserRole  = httpsCallable(functions, "setUserRole");
+          await setUserRole({ uid: newUid, role });
+          roleSet = true;
+        } catch (fnErr) {
+          console.warn("Could not set role via Cloud Function:", fnErr.message);
+          // Continue — account was created; role must be set manually
+        }
+
+        // Step 3: Create matching Firestore staffmembers record
+        await addDoc(collection(db, "staffmembers"), {
+          staffId:    "",           // will be updated manually or via a trigger
+          firstName,
+          lastName,
+          role:       role.charAt(0).toUpperCase() + role.slice(1),
+          email,
+          phone:      "",
+          startDate:  "",
+          isActive:   true,
+          createdAt:  serverTimestamp(),
+          updatedAt:  serverTimestamp(),
+          createdBy:  auth.currentUser.uid
+        });
+
+        // Show result
+        const roleMsg = roleSet
+          ? `Role <strong>${role}</strong> has been assigned.`
+          : `⚠️ Account created but role could not be set automatically — deploy the setUserRole Cloud Function and assign the role manually.`;
+
+        showAlert(alertSuccess,
+          `Account created for ${firstName} ${lastName}. ${roleMsg}`);
+        alertSuccess.innerHTML =
+          `✓ Account created for <strong>${firstName} ${lastName}</strong>. ${roleMsg}`;
+        alertSuccess.classList.add("show");
+
+        // Reset form
+        inputFirstName.value = "";
+        inputLastName.value  = "";
+        inputEmail.value     = "";
+        inputPassword.value  = "";
+        selectRole.value     = "";
+
+        // Refresh staff list
+        await loadStaffMembers();
+
+      } catch (err) {
+        let message = err.message;
+        // Friendlier error messages
+        if (err.code === "auth/email-already-in-use") {
+          message = "That email address already has an account.";
+        } else if (err.code === "auth/invalid-email") {
+          message = "Please enter a valid email address.";
+        } else if (err.code === "auth/weak-password") {
+          message = "Password is too weak. Use at least 8 characters.";
+        }
+        showAlert(alertError, message);
+      } finally {
+        btnCreateUser.disabled = false;
+        btnCreateUser.textContent = "Create Account";
+      }
+    }
+
+    // ── Auth state guard ────────────────────────────────────────────────────
+    // Wait for Firebase to confirm auth state, then check the role claim.
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        // Not signed in — redirect to login
+        window.location.href = "login.html";
+        return;
+      }
+
+      // Force-refresh the token to get the latest custom claims
+      const tokenResult = await user.getIdTokenResult(true);
+      const role = tokenResult.claims.role;
+
+      if (role !== "director") {
+        // Not a director — redirect to login with a message
+        window.location.href = "login.html?error=unauthorised";
+        return;
+      }
+
+      // Authorised — show the page
+      topbarEmail.textContent = user.email;
+      alertInfo.classList.add("show");
+
+      // Hide loading overlay
+      loadingOverlay.classList.add("hidden");
+      setTimeout(() => loadingOverlay.style.display = "none", 350);
+
+      // Load data
+      await loadStaffMembers();
+    });
+
+    // ── Event listeners ─────────────────────────────────────────────────────
+    btnCreateUser.addEventListener("click", createUser);
+
+    btnSignOut.addEventListener("click", async () => {
+      await signOut(auth);
+      window.location.href = "login.html";
+    });
+
+  </script>
+</body>
+</html>

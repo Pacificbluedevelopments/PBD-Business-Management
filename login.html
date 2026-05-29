@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<!--
+  login.html
+  Pacific Blue Developments — Business Management Application
+  ─────────────────────────────────────────────────────────────
+  Sign-in page for all users.
+
+  On successful authentication:
+    - Reads the user's role from Firebase Auth custom claims
+    - Redirects to the correct dashboard for their role:
+        director   → admin-setup.html
+        sales      → lead-entry.html       (Phase 1)
+        supervisor → operations-board.html (Phase 2)
+        accounts   → revenue-forecast.html (Phase 2)
+
+  Shows a clear error message on failed login attempts.
+  Shows a warning if the URL includes ?error=unauthorised (redirected by admin pages).
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — Pacific Blue Developments</title>
+
+  <style>
+    /* ── Design tokens ── */
+    :root {
+      --navy:        #1B2A3B;
+      --navy-light:  #243548;
+      --navy-dark:   #111d2b;
+      --navy-deeper: #0d1620;
+      --gold:        #B8860B;
+      --gold-light:  #d4a017;
+      --gold-pale:   rgba(184,134,11,0.15);
+      --white:       #ffffff;
+      --off-white:   #f5f6f8;
+      --border:      rgba(255,255,255,0.12);
+      --text-muted:  rgba(255,255,255,0.5);
+      --danger:      #e55353;
+      --danger-bg:   rgba(229,83,83,0.12);
+      --success:     #4caf82;
+      --radius:      8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Full-page layout ── */
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--navy-deeper);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle geometric background pattern */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          45deg,
+          transparent,
+          transparent 60px,
+          rgba(184,134,11,0.03) 60px,
+          rgba(184,134,11,0.03) 61px
+        ),
+        repeating-linear-gradient(
+          -45deg,
+          transparent,
+          transparent 60px,
+          rgba(255,255,255,0.02) 60px,
+          rgba(255,255,255,0.02) 61px
+        );
+      pointer-events: none;
+    }
+
+    /* Glow accent top-left */
+    body::after {
+      content: "";
+      position: fixed;
+      top: -200px;
+      left: -200px;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(184,134,11,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── Login card ── */
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      margin: 24px;
+      background: rgba(27,42,59,0.85);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow:
+        0 24px 60px rgba(0,0,0,0.5),
+        0 0 0 1px rgba(255,255,255,0.04) inset;
+      backdrop-filter: blur(10px);
+      position: relative;
+      z-index: 1;
+      animation: cardAppear 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes cardAppear {
+      from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.97);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* ── Card header / branding ── */
+    .card-header {
+      padding: 36px 36px 28px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      background: var(--gold);
+      border-radius: 12px;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: 0.5px;
+      margin-bottom: 18px;
+      box-shadow: 0 4px 16px rgba(184,134,11,0.3);
+    }
+
+    .brand-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: 0.3px;
+      margin-bottom: 4px;
+    }
+
+    .brand-tagline {
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    /* ── Card body / form ── */
+    .card-body { padding: 28px 36px 36px; }
+
+    .form-heading {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 22px;
+      letter-spacing: 0.2px;
+    }
+
+    /* ── Alert messages ── */
+    .alert {
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: none;
+      line-height: 1.5;
+    }
+    .alert.show { display: block; }
+
+    .alert-error {
+      background: var(--danger-bg);
+      border: 1px solid rgba(229,83,83,0.25);
+      color: #ff8080;
+    }
+    .alert-warning {
+      background: rgba(184,134,11,0.12);
+      border: 1px solid rgba(184,134,11,0.25);
+      color: var(--gold-light);
+    }
+
+    /* ── Form elements ── */
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 11px 14px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--radius);
+      color: var(--white);
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      -webkit-text-fill-color: var(--white); /* prevent browser autofill darkening */
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--gold);
+      background: rgba(184,134,11,0.07);
+      box-shadow: 0 0 0 3px rgba(184,134,11,0.15);
+    }
+
+    .form-group input::placeholder {
+      color: rgba(255,255,255,0.25);
+    }
+
+    /* Chrome autofill override */
+    .form-group input:-webkit-autofill,
+    .form-group input:-webkit-autofill:hover,
+    .form-group input:-webkit-autofill:focus {
+      -webkit-box-shadow: 0 0 0 100px rgba(27,42,59,0.95) inset;
+      -webkit-text-fill-color: var(--white);
+      caret-color: var(--white);
+    }
+
+    /* ── Sign-in button ── */
+    .btn-signin {
+      width: 100%;
+      padding: 13px;
+      margin-top: 6px;
+      background: var(--gold);
+      color: var(--navy);
+      border: none;
+      border-radius: var(--radius);
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 4px 12px rgba(184,134,11,0.25);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-signin:hover:not(:disabled) {
+      background: var(--gold-light);
+      box-shadow: 0 6px 18px rgba(184,134,11,0.35);
+      transform: translateY(-1px);
+    }
+
+    .btn-signin:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-signin:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Shimmer animation on the button */
+    .btn-signin::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255,255,255,0.25),
+        transparent
+      );
+      transition: left 0.5s;
+    }
+    .btn-signin:hover::after { left: 100%; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(27,42,59,0.3);
+      border-top-color: var(--navy);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 7px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Footer ── */
+    .card-footer {
+      text-align: center;
+      padding: 0 36px 28px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .card-footer a {
+      color: var(--gold-light);
+      text-decoration: none;
+    }
+    .card-footer a:hover { text-decoration: underline; }
+
+    /* ── Version badge ── */
+    .version-badge {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.2);
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login card -->
+  <div class="login-card">
+
+    <!-- Branding header -->
+    <div class="card-header">
+      <div class="logo-mark">PB</div>
+      <div class="brand-name">Pacific Blue Developments</div>
+      <div class="brand-tagline">Business Management</div>
+    </div>
+
+    <!-- Form body -->
+    <div class="card-body">
+      <div class="form-heading">Sign in to your account</div>
+
+      <!-- Unauthorised redirect warning (set via URL param) -->
+      <div class="alert alert-warning" id="alert-unauthorised">
+        ⚠️ You do not have permission to access that page.
+      </div>
+
+      <!-- Login error message -->
+      <div class="alert alert-error" id="alert-error"></div>
+
+      <!-- Email field -->
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input
+          type="email"
+          id="email"
+          placeholder="you@pacificblue.com.au"
+          autocomplete="email"
+          inputmode="email"
+        />
+      </div>
+
+      <!-- Password field -->
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          placeholder="Enter your password"
+          autocomplete="current-password"
+        />
+      </div>
+
+      <!-- Sign in button -->
+      <button class="btn-signin" id="btn-signin">
+        Sign In
+      </button>
+    </div>
+
+    <!-- Footer -->
+    <div class="card-footer">
+      Forgotten your password? Contact your system administrator.<br />
+      <a href="mailto:admin@pacificblue.com.au">admin@pacificblue.com.au</a>
+    </div>
+
+  </div>
+
+  <!-- Version badge -->
+  <div class="version-badge">Pacific Blue BMS · Phase 1</div>
+
+  <!-- ─────────────────────────────────────────────────────────────────────
+       Firebase SDK (ES Modules via CDN)
+       ───────────────────────────────────────────────────────────────────── -->
+  <script type="module">
+
+    // Import Firebase Auth from the central config file
+    import { auth } from "./firebase-config.js";
+
+    import {
+      signInWithEmailAndPassword,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    // ── DOM references ──────────────────────────────────────────────────────
+    const inputEmail        = document.getElementById("email");
+    const inputPassword     = document.getElementById("password");
+    const btnSignIn         = document.getElementById("btn-signin");
+    const alertError        = document.getElementById("alert-error");
+    const alertUnauthorised = document.getElementById("alert-unauthorised");
+
+    // ── Role → redirect mapping ─────────────────────────────────────────────
+    // Add redirect targets here as new pages are built.
+    const ROLE_REDIRECTS = {
+      director:   "admin-setup.html",
+      sales:      "lead-entry.html",       // Phase 1 — to be built
+      supervisor: "operations-board.html", // Phase 2 — to be built
+      accounts:   "revenue-forecast.html"  // Phase 2 — to be built
+    };
+
+    // ── Check URL params for redirect error ─────────────────────────────────
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("error") === "unauthorised") {
+      alertUnauthorised.classList.add("show");
+    }
+
+    // ── If user is already signed in, redirect immediately ──────────────────
+    // Use onAuthStateChanged so we wait for Firebase to restore session.
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        await redirectByRole(user);
+      }
+    });
+
+    // ── Helper: get role from token and redirect ────────────────────────────
+    async function redirectByRole(user) {
+      try {
+        // Force-refresh to ensure we have the latest custom claims
+        const tokenResult = await user.getIdTokenResult(true);
+        const role = tokenResult.claims.role;
+        const destination = ROLE_REDIRECTS[role];
+
+        if (destination) {
+          window.location.href = destination;
+        } else {
+          // Authenticated but no valid role claim
+          showError(
+            "Your account does not have a role assigned. " +
+            "Please contact your administrator."
+          );
+          // Reset button state
+          btnSignIn.disabled = false;
+          btnSignIn.textContent = "Sign In";
+        }
+      } catch (err) {
+        showError("Could not verify your account role. Please try again.");
+        btnSignIn.disabled = false;
+        btnSignIn.textContent = "Sign In";
+      }
+    }
+
+    // ── Helper: display error ───────────────────────────────────────────────
+    function showError(message) {
+      alertUnauthorised.classList.remove("show");
+      alertError.textContent = message;
+      alertError.classList.add("show");
+      // Shake the card slightly for feedback
+      alertError.style.animation = "none";
+      requestAnimationFrame(() => {
+        alertError.style.animation = "";
+      });
+    }
+
+    // ── Sign-in handler ─────────────────────────────────────────────────────
+    async function handleSignIn() {
+      const email    = inputEmail.value.trim();
+      const password = inputPassword.value;
+
+      // Clear previous errors
+      alertError.classList.remove("show");
+      alertError.textContent = "";
+
+      // Basic field validation
+      if (!email) {
+        showError("Please enter your email address.");
+        inputEmail.focus();
+        return;
+      }
+      if (!password) {
+        showError("Please enter your password.");
+        inputPassword.focus();
+        return;
+      }
+
+      // Disable button and show loading state
+      btnSignIn.disabled = true;
+      btnSignIn.innerHTML = `<span class="spinner"></span>Signing in…`;
+
+      try {
+        // Attempt Firebase Authentication
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // On success, redirect based on role (handled above)
+        await redirectByRole(userCredential.user);
+
+      } catch (err) {
+        // Map Firebase error codes to user-friendly messages
+        let message;
+        switch (err.code) {
+          case "auth/user-not-found":
+          case "auth/wrong-password":
+          case "auth/invalid-credential":
+            message = "Incorrect email or password. Please try again.";
+            break;
+          case "auth/invalid-email":
+            message = "Please enter a valid email address.";
+            break;
+          case "auth/user-disabled":
+            message = "This account has been disabled. Contact your administrator.";
+            break;
+          case "auth/too-many-requests":
+            message = "Too many failed attempts. Please wait a few minutes and try again.";
+            break;
+          case "auth/network-request-failed":
+            message = "Network error. Please check your connection and try again.";
+            break;
+          default:
+            message = "Sign-in failed. Please try again.";
+        }
+        showError(message);
+
+        // Re-enable button
+        btnSignIn.disabled = false;
+        btnSignIn.textContent = "Sign In";
+      }
+    }
+
+    // ── Event listeners ─────────────────────────────────────────────────────
+
+    // Click the Sign In button
+    btnSignIn.addEventListener("click", handleSignIn);
+
+    // Press Enter in either field
+    inputEmail.addEventListener("keydown",    e => { if (e.key === "Enter") inputPassword.focus(); });
+    inputPassword.addEventListener("keydown", e => { if (e.key === "Enter") handleSignIn(); });
+
+  </script>
+</body>
+</html>
