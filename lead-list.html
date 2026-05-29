@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<!--
+  lead-list.html
+  Pacific Blue Developments — Business Management Application
+  ─────────────────────────────────────────────────────────────
+  Lead list screen. Accessible by Directors and Sales users.
+
+  Features:
+    - Loads all leads from Firestore ordered by enquiryDate descending
+    - Filter bar: text search, qualified status, lead source, fiscal year
+    - Colour-coded qualified status badges
+    - Inline edit panel per row (no page navigation)
+    - Editable fields saved back to Firestore with updatedAt timestamp
+
+  Access control:
+    - Reads role from Firestore userroles/{uid}
+    - Redirects unauthenticated users to login.html
+    - Redirects non-director/sales to login.html?error=unauthorised
+
+  Conventions:
+    - Currency stored and displayed ex-GST
+    - Dates stored as ISO YYYY-MM-DD, displayed as DD MMM YYYY
+    - Imports Firebase from ./firebase-config.js
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lead List — Pacific Blue Developments</title>
+
+  <style>
+    /* ── Design tokens ── */
+    :root {
+      --navy:         #1B2A3B;
+      --navy-light:   #243548;
+      --navy-dark:    #111d2b;
+      --gold:         #B8860B;
+      --gold-light:   #d4a017;
+      --gold-pale:    #fdf6e3;
+      --white:        #ffffff;
+      --off-white:    #f5f6f8;
+      --row-alt:      #f9fafb;
+      --border:       #dde1e7;
+      --text:         #1B2A3B;
+      --text-mid:     #4a5568;
+      --text-muted:   #6b7a8d;
+      --danger:       #c0392b;
+      --danger-bg:    #fdf0ef;
+      --danger-border:#f1b9b5;
+      --success:      #1a7a4a;
+      --success-bg:   #eafaf2;
+      --success-border:#b2dfcd;
+      --radius:       6px;
+      --radius-lg:    10px;
+      --shadow-sm:    0 1px 3px rgba(0,0,0,0.06);
+      --shadow:       0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--off-white);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Top navigation bar — matches lead-entry.html exactly ── */
+    .topbar {
+      background: var(--navy);
+      color: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 64px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar-logo {
+      width: 36px;
+      height: 36px;
+      background: var(--gold);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--navy);
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+
+    .topbar-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .topbar-subtitle {
+      font-size: 12px;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar-user {
+      font-size: 13px;
+      color: rgba(255,255,255,0.75);
+    }
+
+    .btn-new-lead {
+      background: var(--gold);
+      border: none;
+      color: var(--navy);
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 7px 16px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    .btn-new-lead:hover { background: var(--gold-light); }
+
+    .btn-signout {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      color: var(--white);
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-signout:hover { background: rgba(255,255,255,0.1); }
+
+    /* ── Page wrapper ── */
+    .page-wrapper {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px 60px;
+    }
+
+    /* ── Page header ── */
+    .page-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .page-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .page-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 140px;
+    }
+
+    .filter-group.search-group { flex: 1; min-width: 200px; }
+
+    .filter-group label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .filter-group input,
+    .filter-group select {
+      font-family: Arial, sans-serif;
+      font-size: 13.5px;
+      color: var(--text);
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 7px 10px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      appearance: none;
+      width: 100%;
+    }
+
+    .filter-group input:focus,
+    .filter-group select:focus {
+      outline: none;
+      border-color: var(--navy);
+      box-shadow: 0 0 0 3px rgba(27,42,59,0.08);
+    }
+
+    .filter-group input::placeholder { color: var(--text-muted); }
+
+    .select-wrap { position: relative; }
+    .select-wrap::after {
+      content: "▾";
+      position: absolute;
+      right: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      font-size: 10px;
+    }
+
+    .btn-clear-filters {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 7px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-mid);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+      white-space: nowrap;
+      align-self: flex-end;
+    }
+    .btn-clear-filters:hover { border-color: var(--navy); color: var(--navy); }
+
+    /* ── Summary line ── */
+    .summary-line {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      min-height: 20px;
+    }
+
+    .summary-line strong { color: var(--navy); }
+
+    /* ── Table card ── */
+    .table-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .table-scroll { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      min-width: 900px;
+    }
+
+    thead {
+      background: var(--navy);
+      color: var(--white);
+    }
+
+    thead th {
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.12s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:nth-child(even) { background: var(--row-alt); }
+    tbody tr:hover { background: #eef1f5; }
+
+    /* Keep edit panel row from getting row hover colour */
+    tbody tr.edit-panel-row { background: var(--white) !important; }
+    tbody tr.edit-panel-row:hover { background: var(--white) !important; }
+
+    /* Highlight the parent row of an open edit panel */
+    tbody tr.row-active { background: var(--gold-pale) !important; }
+
+    td {
+      padding: 11px 14px;
+      vertical-align: middle;
+      color: var(--text);
+    }
+
+    td.muted { color: var(--text-muted); font-size: 13px; }
+
+    /* ── Qualified status badges ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .badge-tbd  { background: #e8eaed; color: #5f6b7a; }
+    .badge-yes  { background: #d4edda; color: #155724; }
+    .badge-no   { background: #f8d7da; color: #721c24; }
+
+    /* ── Action button ── */
+    .btn-view-edit {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 5px 12px;
+      background: var(--navy);
+      border: none;
+      border-radius: var(--radius);
+      color: var(--white);
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-view-edit:hover { background: var(--navy-light); }
+    .btn-view-edit.active { background: var(--gold); color: var(--navy); }
+
+    /* ── Inline edit panel ── */
+    .edit-panel-cell {
+      padding: 0 !important;
+    }
+
+    .edit-panel {
+      padding: 24px 28px;
+      background: #f0f4f8;
+      border-top: 2px solid var(--gold);
+    }
+
+    .edit-panel-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--navy);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 18px;
+    }
+
+    .edit-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px 20px;
+      margin-bottom: 18px;
+    }
+
+    .edit-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .edit-group.span-2 { grid-column: span 2; }
+    .edit-group.span-3 { grid-column: span 3; }
+
+    .edit-group label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .edit-group input,
+    .edit-group select,
+    .edit-group textarea {
+      font-family: Arial, sans-serif;
+      font-size: 13.5px;
+      color: var(--text);
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 10px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      appearance: none;
+      width: 100%;
+    }
+
+    .edit-group input:focus,
+    .edit-group select:focus,
+    .edit-group textarea:focus {
+      outline: none;
+      border-color: var(--navy);
+      box-shadow: 0 0 0 3px rgba(27,42,59,0.08);
+    }
+
+    .edit-group textarea {
+      resize: vertical;
+      min-height: 68px;
+      line-height: 1.5;
+    }
+
+    .edit-select-wrap { position: relative; }
+    .edit-select-wrap::after {
+      content: "▾";
+      position: absolute;
+      right: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      font-size: 10px;
+    }
+
+    /* Open / Closed toggle */
+    .toggle-group {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    .toggle-btn {
+      flex: 1;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 10px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      background: var(--white);
+      color: var(--text-muted);
+    }
+
+    .toggle-btn.selected-open  { background: var(--success); color: var(--white); }
+    .toggle-btn.selected-closed{ background: var(--danger);  color: var(--white); }
+
+    /* Edit panel footer */
+    .edit-panel-footer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-save-changes {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 22px;
+      background: var(--navy);
+      border: none;
+      border-radius: var(--radius);
+      color: var(--white);
+      cursor: pointer;
+      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .btn-save-changes:hover:not(:disabled) { background: var(--navy-light); }
+    .btn-save-changes:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .btn-cancel-edit {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 18px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-mid);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-cancel-edit:hover { border-color: var(--navy); color: var(--navy); }
+
+    .edit-save-msg {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--success);
+      display: none;
+    }
+    .edit-save-msg.show { display: inline; }
+
+    /* ── Currency input in edit panel ── */
+    .currency-wrap { position: relative; }
+    .currency-wrap input { padding-left: 24px; }
+    .currency-symbol {
+      position: absolute;
+      left: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* ── Empty / loading states ── */
+    .state-row td {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(27,42,59,0.15);
+      border-top-color: var(--navy);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    .spinner-sm {
+      width: 13px;
+      height: 13px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: var(--white);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Loading overlay ── */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--navy-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.3s;
+    }
+    #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+    .loading-text {
+      color: var(--white);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .topbar { padding: 0 16px; }
+      .topbar-user { display: none; }
+      .page-wrapper { padding: 20px 16px 40px; }
+      .filter-bar { padding: 14px 16px; }
+      .edit-grid { grid-template-columns: 1fr 1fr; }
+      .edit-group.span-3 { grid-column: span 2; }
+    }
+
+    @media (max-width: 480px) {
+      .edit-grid { grid-template-columns: 1fr; }
+      .edit-group.span-2,
+      .edit-group.span-3 { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading overlay -->
+  <div id="loading-overlay">
+    <div class="loading-text">PACIFIC BLUE</div>
+  </div>
+
+  <!-- Top navigation bar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">PB</div>
+      <div>
+        <div class="topbar-title">Pacific Blue Developments</div>
+        <div class="topbar-subtitle">Lead List</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="topbar-user-email"></span>
+      <a class="btn-new-lead" href="lead-entry.html">+ New Lead</a>
+      <button class="btn-signout" id="btn-signout">Sign Out</button>
+    </div>
+  </header>
+
+  <!-- Page content -->
+  <main class="page-wrapper">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Leads</h1>
+        <p class="page-subtitle">All enquiries recorded in the system</p>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+
+      <div class="filter-group search-group">
+        <label for="filter-search">Search</label>
+        <input
+          type="text"
+          id="filter-search"
+          placeholder="Contact name or address..."
+        />
+      </div>
+
+      <div class="filter-group">
+        <label for="filter-qualified">Qualified Status</label>
+        <div class="select-wrap">
+          <select id="filter-qualified">
+            <option value="">All</option>
+            <option value="TBD">TBD</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label for="filter-source">Lead Source</label>
+        <div class="select-wrap">
+          <select id="filter-source">
+            <option value="">All</option>
+            <option value="Google">Google</option>
+            <option value="Facebook">Facebook</option>
+            <option value="Instagram">Instagram</option>
+            <option value="Signage">Signage</option>
+            <option value="Referral-Client">Referral-Client</option>
+            <option value="Referral-Professional">Referral-Professional</option>
+            <option value="Word of Mouth">Word of Mouth</option>
+            <option value="Repeat">Repeat</option>
+            <option value="Mailchimp">Mailchimp</option>
+            <option value="ChatGPT">ChatGPT</option>
+            <option value="QR">QR</option>
+            <option value="Programmatic">Programmatic</option>
+            <option value="Direct">Direct</option>
+            <option value="Walk-In">Walk-In</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label for="filter-fy">Fiscal Year</label>
+        <div class="select-wrap">
+          <select id="filter-fy">
+            <option value="">All</option>
+            <!-- Populated dynamically from Firestore data -->
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-clear-filters" id="btn-clear-filters">Clear Filters</button>
+
+    </div>
+
+    <!-- Summary line -->
+    <div class="summary-line" id="summary-line"></div>
+
+    <!-- Leads table -->
+    <div class="table-card">
+      <div class="table-scroll">
+        <table id="leads-table">
+          <thead>
+            <tr>
+              <th>Enquiry Date</th>
+              <th>Contact Name</th>
+              <th>Project Address</th>
+              <th>Lead Source</th>
+              <th>Project Type</th>
+              <th>Est. Budget</th>
+              <th>Qualified</th>
+              <th>Fiscal Year</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="leads-tbody">
+            <tr class="state-row">
+              <td colspan="9">
+                <span class="spinner"></span> Loading leads...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+
+    // Import Firebase services from central config file
+    import { auth, db } from "./firebase-config.js";
+
+    import {
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    import {
+      collection,
+      getDocs,
+      doc,
+      getDoc,
+      updateDoc,
+      query,
+      orderBy,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── DOM references ──────────────────────────────────────────────────────
+    const loadingOverlay  = document.getElementById("loading-overlay");
+    const topbarUserEmail = document.getElementById("topbar-user-email");
+    const btnSignOut      = document.getElementById("btn-signout");
+    const leadsTbody      = document.getElementById("leads-tbody");
+    const summaryLine     = document.getElementById("summary-line");
+    const filterSearch    = document.getElementById("filter-search");
+    const filterQualified = document.getElementById("filter-qualified");
+    const filterSource    = document.getElementById("filter-source");
+    const filterFY        = document.getElementById("filter-fy");
+    const btnClearFilters = document.getElementById("btn-clear-filters");
+
+    // ── App state ───────────────────────────────────────────────────────────
+    let allLeads     = [];   // full dataset from Firestore
+    let openEditId   = null; // document ID of the currently open edit panel
+
+    // ── Auth guard ──────────────────────────────────────────────────────────
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      try {
+        const roleDoc = await getDoc(doc(db, "userroles", user.uid));
+        const role = roleDoc.exists() ? roleDoc.data().role : null;
+        if (role !== "director" && role !== "sales") {
+          window.location.href = "login.html?error=unauthorised";
+          return;
+        }
+      } catch (err) {
+        window.location.href = "login.html?error=unauthorised";
+        return;
+      }
+
+      topbarUserEmail.textContent = user.email;
+
+      // Hide auth loading overlay
+      loadingOverlay.classList.add("hidden");
+      setTimeout(() => loadingOverlay.style.display = "none", 350);
+
+      // Load leads from Firestore
+      await loadLeads();
+    });
+
+    // ── Format date: ISO → DD MMM YYYY ─────────────────────────────────────
+    function formatDate(isoStr) {
+      if (!isoStr) return "—";
+      const months = ["Jan","Feb","Mar","Apr","May","Jun",
+                      "Jul","Aug","Sep","Oct","Nov","Dec"];
+      const d = new Date(isoStr + "T00:00:00");
+      return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+    }
+
+    // ── Format currency: number → $xxx,xxx ─────────────────────────────────
+    function formatBudget(val) {
+      if (val === null || val === undefined || val === "") return "";
+      return "$" + Number(val).toLocaleString("en-AU", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      });
+    }
+
+    // ── Qualified status badge HTML ─────────────────────────────────────────
+    function qualifiedBadge(status) {
+      const map = {
+        "Yes": "badge-yes",
+        "No":  "badge-no",
+        "TBD": "badge-tbd"
+      };
+      const cls = map[status] || "badge-tbd";
+      return `<span class="badge ${cls}">${status || "TBD"}</span>`;
+    }
+
+    // ── Load all leads from Firestore ───────────────────────────────────────
+    async function loadLeads() {
+      try {
+        const q = query(
+          collection(db, "leads"),
+          orderBy("enquiryDate", "desc")
+        );
+        const snapshot = await getDocs(q);
+
+        allLeads = [];
+        snapshot.forEach(docSnap => {
+          allLeads.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        // Populate fiscal year filter from actual data
+        populateFYFilter();
+
+        // Render table
+        renderTable();
+
+      } catch (err) {
+        leadsTbody.innerHTML = `
+          <tr class="state-row">
+            <td colspan="9" style="color:var(--danger)">
+              Failed to load leads: ${err.message}
+            </td>
+          </tr>`;
+      }
+    }
+
+    // ── Populate fiscal year dropdown from data ─────────────────────────────
+    function populateFYFilter() {
+      const fySet = new Set();
+      allLeads.forEach(l => { if (l.fiscalYear) fySet.add(l.fiscalYear); });
+      const sorted = Array.from(fySet).sort().reverse();
+      const currentVal = filterFY.value;
+      // Remove existing options except "All"
+      while (filterFY.options.length > 1) filterFY.remove(1);
+      sorted.forEach(fy => {
+        const opt = document.createElement("option");
+        opt.value = fy;
+        opt.textContent = fy;
+        filterFY.appendChild(opt);
+      });
+      if (currentVal) filterFY.value = currentVal;
+    }
+
+    // ── Apply filters and return matching leads ─────────────────────────────
+    function getFilteredLeads() {
+      const search    = filterSearch.value.trim().toLowerCase();
+      const qualified = filterQualified.value;
+      const source    = filterSource.value;
+      const fy        = filterFY.value;
+
+      return allLeads.filter(lead => {
+        // Text search: name or address
+        if (search) {
+          const name    = ((lead.firstName || "") + " " + (lead.lastName || "")).toLowerCase();
+          const address = (lead.projectAddress || "").toLowerCase();
+          if (!name.includes(search) && !address.includes(search)) return false;
+        }
+        if (qualified && lead.qualifiedStatus !== qualified) return false;
+        if (source    && lead.leadSource       !== source)    return false;
+        if (fy        && lead.fiscalYear        !== fy)        return false;
+        return true;
+      });
+    }
+
+    // ── Render table ────────────────────────────────────────────────────────
+    function renderTable() {
+      const filtered = getFilteredLeads();
+
+      // Update summary line
+      summaryLine.innerHTML =
+        `Showing <strong>${filtered.length}</strong> of <strong>${allLeads.length}</strong> lead${allLeads.length !== 1 ? "s" : ""}`;
+
+      if (filtered.length === 0) {
+        const msg = allLeads.length === 0
+          ? "No leads have been recorded yet. <a href='lead-entry.html' style='color:var(--gold);font-weight:700'>Add the first lead →</a>"
+          : "No leads match the current filters.";
+        leadsTbody.innerHTML = `<tr class="state-row"><td colspan="9">${msg}</td></tr>`;
+        return;
+      }
+
+      // Close any open edit panel if its lead is now filtered out
+      if (openEditId && !filtered.find(l => l.id === openEditId)) {
+        openEditId = null;
+      }
+
+      let html = "";
+      filtered.forEach(lead => {
+        const isOpen   = openEditId === lead.id;
+        const name     = ((lead.firstName || "") + " " + (lead.lastName || "")).trim() || "—";
+        const address  = lead.projectAddress || "—";
+        const budget   = formatBudget(lead.estimatedBudget);
+        const date     = formatDate(lead.enquiryDate);
+        const rowClass = isOpen ? "row-active" : "";
+
+        html += `
+          <tr class="${rowClass}" data-id="${lead.id}">
+            <td>${date}</td>
+            <td><strong>${name}</strong></td>
+            <td class="muted">${address}</td>
+            <td>${lead.leadSource || "—"}</td>
+            <td>${lead.projectType || "—"}</td>
+            <td>${budget || '<span style="color:var(--text-muted)">—</span>'}</td>
+            <td>${qualifiedBadge(lead.qualifiedStatus)}</td>
+            <td class="muted">${lead.fiscalYear || "—"}</td>
+            <td>
+              <button
+                class="btn-view-edit ${isOpen ? "active" : ""}"
+                data-id="${lead.id}"
+                onclick="toggleEditPanel('${lead.id}')"
+              >${isOpen ? "Close" : "View / Edit"}</button>
+            </td>
+          </tr>`;
+
+        // Render inline edit panel row if this lead is open
+        if (isOpen) {
+          html += buildEditPanelRow(lead);
+        }
+      });
+
+      leadsTbody.innerHTML = html;
+    }
+
+    // ── Build inline edit panel HTML for a lead ─────────────────────────────
+    function buildEditPanelRow(lead) {
+      const openChecked   = lead.openLeadStatus !== false;
+      const openSelOpen   = openChecked  ? "selected-open"   : "";
+      const openSelClosed = !openChecked ? "selected-closed" : "";
+
+      return `
+        <tr class="edit-panel-row" data-edit-id="${lead.id}">
+          <td class="edit-panel-cell" colspan="9">
+            <div class="edit-panel">
+              <div class="edit-panel-title">Edit Lead — ${((lead.firstName||"") + " " + (lead.lastName||"")).trim()}</div>
+
+              <div class="edit-grid">
+
+                <div class="edit-group">
+                  <label>Qualified Status</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-qualifiedStatus-${lead.id}">
+                      <option value="TBD" ${lead.qualifiedStatus==="TBD"?"selected":""}>TBD</option>
+                      <option value="Yes" ${lead.qualifiedStatus==="Yes"?"selected":""}>Yes</option>
+                      <option value="No"  ${lead.qualifiedStatus==="No" ?"selected":""}>No</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="edit-group">
+                  <label>Lead Source</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-leadSource-${lead.id}">
+                      <option value="">— Select —</option>
+                      ${["Google","Facebook","Instagram","Signage","Referral-Client","Referral-Professional","Word of Mouth","Repeat","Mailchimp","ChatGPT","QR","Programmatic","Direct","Walk-In"]
+                        .map(s => `<option value="${s}" ${lead.leadSource===s?"selected":""}>${s}</option>`).join("")}
+                    </select>
+                  </div>
+                </div>
+
+                <div class="edit-group">
+                  <label>Form of Contact</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-formOfContact-${lead.id}">
+                      <option value="">— Select —</option>
+                      ${["Phone","Email","Walk-In","Online Form","Referral Introduction"]
+                        .map(s => `<option value="${s}" ${lead.formOfContact===s?"selected":""}>${s}</option>`).join("")}
+                    </select>
+                  </div>
+                </div>
+
+                <div class="edit-group">
+                  <label>Project Type</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-projectType-${lead.id}">
+                      <option value="">— Select —</option>
+                      ${["New Build","KDRB","Duplex","Granny Flat","Renovation","Commercial","Extension"]
+                        .map(s => `<option value="${s}" ${lead.projectType===s?"selected":""}>${s}</option>`).join("")}
+                    </select>
+                  </div>
+                </div>
+
+                <div class="edit-group">
+                  <label>Estimated Budget (ex GST)</label>
+                  <div class="currency-wrap">
+                    <span class="currency-symbol">$</span>
+                    <input
+                      type="number"
+                      id="ep-estimatedBudget-${lead.id}"
+                      value="${lead.estimatedBudget !== null && lead.estimatedBudget !== undefined ? lead.estimatedBudget : ""}"
+                      min="0"
+                      step="1000"
+                    />
+                  </div>
+                </div>
+
+                <div class="edit-group">
+                  <label>Non-Conversion Reason</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-nonConversionReason-${lead.id}">
+                      <option value="">— None —</option>
+                      ${["Budget","Scope","Selected Alternative Builder","Timing","Disengaged","Design","Circumstances","Expectation"]
+                        .map(s => `<option value="${s}" ${lead.nonConversionReason===s?"selected":""}>${s}</option>`).join("")}
+                    </select>
+                  </div>
+                </div>
+
+                <div class="edit-group">
+                  <label>Open Lead Status</label>
+                  <div class="toggle-group">
+                    <button
+                      type="button"
+                      class="toggle-btn ${openSelOpen}"
+                      id="ep-toggle-open-${lead.id}"
+                      onclick="setOpenStatus('${lead.id}', true)"
+                    >Open</button>
+                    <button
+                      type="button"
+                      class="toggle-btn ${openSelClosed}"
+                      id="ep-toggle-closed-${lead.id}"
+                      onclick="setOpenStatus('${lead.id}', false)"
+                    >Closed</button>
+                  </div>
+                </div>
+
+                <div class="edit-group span-2">
+                  <label>Qualification Notes</label>
+                  <textarea id="ep-qualificationNotes-${lead.id}">${lead.qualificationNotes || ""}</textarea>
+                </div>
+
+                <div class="edit-group span-3">
+                  <label>Project Description</label>
+                  <textarea id="ep-projectDescription-${lead.id}">${lead.projectDescription || ""}</textarea>
+                </div>
+
+              </div>
+
+              <div class="edit-panel-footer">
+                <button
+                  class="btn-save-changes"
+                  id="ep-save-btn-${lead.id}"
+                  onclick="saveChanges('${lead.id}')"
+                >Save Changes</button>
+                <button
+                  class="btn-cancel-edit"
+                  onclick="closeEditPanel()"
+                >Cancel</button>
+                <span class="edit-save-msg" id="ep-save-msg-${lead.id}">&#10003; Changes saved</span>
+              </div>
+
+            </div>
+          </td>
+        </tr>`;
+    }
+
+    // ── Toggle edit panel open/closed ───────────────────────────────────────
+    window.toggleEditPanel = function(leadId) {
+      if (openEditId === leadId) {
+        openEditId = null;
+      } else {
+        openEditId = leadId;
+      }
+      renderTable();
+    };
+
+    // ── Close edit panel ────────────────────────────────────────────────────
+    window.closeEditPanel = function() {
+      openEditId = null;
+      renderTable();
+    };
+
+    // ── Open/Closed toggle state ────────────────────────────────────────────
+    // Tracks pending open status while edit panel is open
+    const pendingOpenStatus = {};
+
+    window.setOpenStatus = function(leadId, isOpen) {
+      pendingOpenStatus[leadId] = isOpen;
+      const btnOpen   = document.getElementById(`ep-toggle-open-${leadId}`);
+      const btnClosed = document.getElementById(`ep-toggle-closed-${leadId}`);
+      if (!btnOpen || !btnClosed) return;
+      btnOpen.className   = "toggle-btn" + (isOpen  ? " selected-open"   : "");
+      btnClosed.className = "toggle-btn" + (!isOpen ? " selected-closed" : "");
+    };
+
+    // ── Save changes to Firestore ───────────────────────────────────────────
+    window.saveChanges = async function(leadId) {
+      const saveBtn = document.getElementById(`ep-save-btn-${leadId}`);
+      const saveMsg = document.getElementById(`ep-save-msg-${leadId}`);
+      if (!saveBtn) return;
+
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner-sm"></span> Saving...';
+
+      try {
+        // Read current open status — use pending value if toggled, else existing
+        const lead = allLeads.find(l => l.id === leadId);
+        const openStatus = leadId in pendingOpenStatus
+          ? pendingOpenStatus[leadId]
+          : (lead ? lead.openLeadStatus : true);
+
+        const budgetVal = document.getElementById(`ep-estimatedBudget-${leadId}`).value;
+
+        const updates = {
+          qualifiedStatus:     document.getElementById(`ep-qualifiedStatus-${leadId}`).value,
+          qualificationNotes:  document.getElementById(`ep-qualificationNotes-${leadId}`).value.trim(),
+          nonConversionReason: document.getElementById(`ep-nonConversionReason-${leadId}`).value,
+          openLeadStatus:      openStatus,
+          leadSource:          document.getElementById(`ep-leadSource-${leadId}`).value,
+          formOfContact:       document.getElementById(`ep-formOfContact-${leadId}`).value,
+          projectType:         document.getElementById(`ep-projectType-${leadId}`).value,
+          estimatedBudget:     budgetVal ? parseFloat(budgetVal) : null,
+          projectDescription:  document.getElementById(`ep-projectDescription-${leadId}`).value.trim(),
+          updatedAt:           serverTimestamp()
+        };
+
+        // Write to Firestore
+        await updateDoc(doc(db, "leads", leadId), updates);
+
+        // Update local data so table re-renders correctly without a full reload
+        const idx = allLeads.findIndex(l => l.id === leadId);
+        if (idx > -1) {
+          allLeads[idx] = { ...allLeads[idx], ...updates, updatedAt: null };
+        }
+        delete pendingOpenStatus[leadId];
+
+        // Show inline success message
+        saveMsg.style.display = "inline";
+        setTimeout(() => { saveMsg.style.display = "none"; }, 3000);
+
+        // Re-render table to reflect updated data (badge etc.)
+        renderTable();
+
+      } catch (err) {
+        console.error("Error saving changes:", err);
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = "Save Changes";
+        alert("Failed to save: " + err.message);
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = "Save Changes";
+        }
+      }
+    };
+
+    // ── Filter event listeners ──────────────────────────────────────────────
+    filterSearch.addEventListener("input",    renderTable);
+    filterQualified.addEventListener("change", renderTable);
+    filterSource.addEventListener("change",    renderTable);
+    filterFY.addEventListener("change",        renderTable);
+
+    btnClearFilters.addEventListener("click", () => {
+      filterSearch.value    = "";
+      filterQualified.value = "";
+      filterSource.value    = "";
+      filterFY.value        = "";
+      renderTable();
+    });
+
+    // ── Sign out ────────────────────────────────────────────────────────────
+    btnSignOut.addEventListener("click", async () => {
+      await signOut(auth);
+      window.location.href = "login.html";
+    });
+
+  </script>
+</body>
+</html>
