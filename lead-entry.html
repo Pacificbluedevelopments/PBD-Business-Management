@@ -900,15 +900,18 @@
         const docRef = await addDoc(collection(db, "leads"), leadData);
         console.log("Lead saved:", docRef.id);
 
-        // Show success and reset form
+        // Show success message, then reset form after 4 seconds so the message is readable
         const fullName = `${leadData.firstName} ${leadData.lastName}`;
         alertSuccessMsg.textContent =
           `Lead for ${fullName} saved successfully — ` +
           `${leadData.fiscalYear} · ${leadData.reportingPeriod}.`;
         alertSuccess.classList.add("show");
-
-        resetForm();
         window.scrollTo({ top: 0, behavior: "smooth" });
+
+        // Delay form reset by 4 seconds so the user can read the success message
+        setTimeout(() => {
+          resetForm();
+        }, 4000);
 
       } catch (err) {
         console.error("Error saving lead:", err);
