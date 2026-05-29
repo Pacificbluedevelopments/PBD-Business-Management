@@ -526,7 +526,9 @@
       addDoc,
       serverTimestamp,
       query,
-      orderBy
+      orderBy,
+      doc,
+      getDoc
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     import {
@@ -723,7 +725,7 @@
     }
 
     // ── Auth state guard ────────────────────────────────────────────────────
-    // Wait for Firebase to confirm auth state, then check the role claim.
+    // Wait for Firebase to confirm auth state, then check role from Firestore.
     onAuthStateChanged(auth, async (user) => {
       if (!user) {
         // Not signed in — redirect to login
@@ -731,12 +733,18 @@
         return;
       }
 
-      // Force-refresh the token to get the latest custom claims
-      const tokenResult = await user.getIdTokenResult(true);
-      const role = tokenResult.claims.role;
+      // Read the user's role from the userroles Firestore collection
+      try {
+        const roleDoc = await getDoc(doc(db, "userroles", user.uid));
+        const role = roleDoc.exists() ? roleDoc.data().role : null;
 
-      if (role !== "director") {
-        // Not a director — redirect to login with a message
+        if (role !== "director") {
+          // Not a director — redirect to login with a message
+          window.location.href = "login.html?error=unauthorised";
+          return;
+        }
+      } catch (err) {
+        // Could not read role — redirect to login
         window.location.href = "login.html?error=unauthorised";
         return;
       }
