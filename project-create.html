@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<!--
+  project-create.html
+  Pacific Blue Developments — Business Management Application
+  ─────────────────────────────────────────────────────────────
+  Promotes a qualified lead into an active pipeline opportunity.
+
+  URL parameter required: ?leadId=LEAD_DOCUMENT_ID
+  - Fetches the lead from Firestore on load
+  - Pre-populates form fields from lead data
+  - On save: creates a new projects document and updates the
+    originating lead with convertedToProject = true
+
+  Access control:
+    - Reads role from Firestore userroles/{uid}
+    - director and sales only; others → login.html?error=unauthorised
+
+  Conventions:
+    - Dates stored as ISO YYYY-MM-DD strings
+    - Currency stored as numbers ex-GST
+    - likelihoodPct stored as decimal (e.g. 0.5 for 50%)
+    - Imports Firebase from ./firebase-config.js
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Activate Opportunity — Pacific Blue Developments</title>
+
+  <style>
+    :root {
+      --navy:         #1B2A3B;
+      --navy-light:   #243548;
+      --navy-dark:    #111d2b;
+      --gold:         #B8860B;
+      --gold-light:   #d4a017;
+      --gold-pale:    #fdf6e3;
+      --white:        #ffffff;
+      --off-white:    #f5f6f8;
+      --border:       #dde1e7;
+      --text:         #1B2A3B;
+      --text-mid:     #4a5568;
+      --text-muted:   #6b7a8d;
+      --danger:       #c0392b;
+      --danger-bg:    #fdf0ef;
+      --danger-border:#f1b9b5;
+      --success:      #1a7a4a;
+      --success-bg:   #eafaf2;
+      --success-border:#b2dfcd;
+      --radius:       6px;
+      --radius-lg:    10px;
+      --shadow-sm:    0 1px 3px rgba(0,0,0,0.06);
+      --shadow:       0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--off-white);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: var(--navy);
+      color: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 64px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar-brand { display: flex; align-items: center; gap: 12px; }
+    .topbar-logo {
+      width: 36px; height: 36px;
+      background: var(--gold);
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 16px;
+      color: var(--navy); letter-spacing: 0.5px; flex-shrink: 0;
+    }
+    .topbar-title  { font-size: 17px; font-weight: 700; letter-spacing: 0.3px; }
+    .topbar-subtitle {
+      font-size: 12px; color: rgba(255,255,255,0.55);
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .topbar-right  { display: flex; align-items: center; gap: 12px; }
+    .topbar-user   { font-size: 13px; color: rgba(255,255,255,0.75); }
+    .btn-signout {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      color: var(--white);
+      font-family: Arial, sans-serif; font-size: 13px;
+      padding: 6px 14px; border-radius: var(--radius);
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-signout:hover { background: rgba(255,255,255,0.1); }
+
+    /* ── Page wrapper ── */
+    .page-wrapper {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 36px 24px 60px;
+    }
+
+    /* ── Lead context banner ── */
+    .context-banner {
+      border-left: 4px solid var(--gold);
+      background: var(--white);
+      border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+      padding: 16px 22px;
+      margin-bottom: 28px;
+      box-shadow: var(--shadow-sm);
+      display: none;
+    }
+    .context-banner.show { display: block; }
+    .context-banner-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+    .context-banner-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+    .context-banner-meta {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* ── Error state ── */
+    .error-state {
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      text-align: center;
+      color: var(--danger);
+      font-size: 14px;
+      display: none;
+    }
+    .error-state.show { display: block; }
+
+    /* ── Alert messages ── */
+    .alert {
+      padding: 13px 16px;
+      border-radius: var(--radius);
+      font-size: 13.5px;
+      margin-bottom: 24px;
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      line-height: 1.5;
+      font-weight: 500;
+    }
+    .alert.show { display: flex; }
+    .alert-error {
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger);
+    }
+
+    /* ── Success screen (replaces form after save) ── */
+    #success-screen {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 48px 40px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      display: none;
+    }
+    #success-screen.show { display: block; }
+    .success-icon {
+      width: 56px; height: 56px;
+      background: var(--success);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; color: var(--white);
+      margin: 0 auto 20px;
+    }
+    .success-title {
+      font-size: 20px; font-weight: 700;
+      color: var(--navy); margin-bottom: 8px;
+    }
+    .success-msg {
+      font-size: 14px; color: var(--text-muted);
+      margin-bottom: 28px; line-height: 1.6;
+    }
+    .btn-view-pipeline {
+      display: inline-block;
+      background: var(--navy);
+      color: var(--white);
+      font-family: Arial, sans-serif;
+      font-size: 14px; font-weight: 700;
+      padding: 11px 28px;
+      border-radius: var(--radius);
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .btn-view-pipeline:hover { background: var(--navy-light); }
+
+    /* ── Form card ── */
+    .form-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    /* ── Form section ── */
+    .form-section {
+      padding: 28px 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .form-section:last-of-type { border-bottom: none; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+    .section-icon {
+      width: 28px; height: 28px;
+      background: var(--navy); border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+    }
+    .section-title {
+      font-size: 13px; font-weight: 700;
+      color: var(--navy); letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .section-line { flex: 1; height: 1px; background: var(--border); }
+    .section-note {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      padding: 10px 14px;
+      background: var(--off-white);
+      border-radius: var(--radius);
+      border-left: 3px solid var(--border);
+    }
+
+    /* ── Form grid ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 24px;
+    }
+    .span-2 { grid-column: span 2; }
+
+    /* ── Form group ── */
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label {
+      font-size: 13px; font-weight: 700;
+      color: var(--navy); letter-spacing: 0.2px;
+    }
+    .required-star { color: var(--gold); margin-left: 2px; }
+    .field-hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px; color: var(--text);
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      appearance: none; width: 100%;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--navy);
+      box-shadow: 0 0 0 3px rgba(27,42,59,0.1);
+    }
+    .form-group input::placeholder,
+    .form-group textarea::placeholder { color: var(--text-muted); }
+    .form-group input.error,
+    .form-group select.error {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 3px rgba(192,57,43,0.08);
+    }
+    .field-error {
+      font-size: 12px; color: var(--danger);
+      font-weight: 500; display: none;
+    }
+    .field-error.show { display: block; }
+
+    .select-wrap { position: relative; }
+    .select-wrap::after {
+      content: "▾"; position: absolute;
+      right: 11px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); pointer-events: none; font-size: 11px;
+    }
+
+    .form-group textarea {
+      resize: vertical; min-height: 80px; line-height: 1.5;
+    }
+
+    /* Currency */
+    .currency-wrap { position: relative; }
+    .currency-wrap input { padding-left: 26px; }
+    .currency-symbol {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      font-size: 13px; color: var(--text-muted); pointer-events: none;
+    }
+
+    /* ── Likelihood row ── */
+    .likelihood-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 24px;
+    }
+
+    .likelihood-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 0.4px;
+      margin-top: 2px;
+    }
+    .lh-high   { background: #d4edda; color: #155724; }
+    .lh-medium { background: #fff3cd; color: #856404; }
+    .lh-low    { background: #f8d7da; color: #721c24; }
+
+    /* ── Form footer ── */
+    .form-footer {
+      padding: 20px 32px;
+      background: var(--off-white);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .footer-hint { font-size: 12px; color: var(--text-muted); }
+    .footer-hint span { color: var(--gold); font-weight: 700; }
+    .form-actions { display: flex; gap: 10px; }
+
+    .btn-cancel {
+      font-family: Arial, sans-serif; font-size: 13px; font-weight: 700;
+      padding: 9px 20px; background: transparent;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-mid); cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-cancel:hover { border-color: var(--navy); color: var(--navy); }
+
+    .btn-activate {
+      font-family: Arial, sans-serif; font-size: 13px; font-weight: 700;
+      padding: 9px 28px; background: var(--gold);
+      border: none; border-radius: var(--radius);
+      color: var(--navy); cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s;
+      box-shadow: var(--shadow-sm);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-activate:hover:not(:disabled) { background: var(--gold-light); box-shadow: var(--shadow); }
+    .btn-activate:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(27,42,59,0.2);
+      border-top-color: var(--navy);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite; flex-shrink: 0;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Loading overlay ── */
+    #loading-overlay {
+      position: fixed; inset: 0;
+      background: var(--navy-dark);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; transition: opacity 0.3s;
+    }
+    #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+    .loading-text { color: var(--white); font-size: 15px; font-weight: 700; letter-spacing: 1px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .form-grid, .likelihood-row { grid-template-columns: 1fr; }
+      .span-2 { grid-column: span 1; }
+      .form-section { padding: 22px 20px; }
+      .topbar { padding: 0 16px; }
+      .form-footer { flex-direction: column; align-items: stretch; }
+      .form-actions { justify-content: flex-end; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading-overlay">
+    <div class="loading-text">PACIFIC BLUE</div>
+  </div>
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">PB</div>
+      <div>
+        <div class="topbar-title">Pacific Blue Developments</div>
+        <div class="topbar-subtitle">Activate Opportunity</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="topbar-user-email"></span>
+      <button class="btn-signout" id="btn-signout">Sign Out</button>
+    </div>
+  </header>
+
+  <main class="page-wrapper">
+
+    <!-- Lead context banner -->
+    <div class="context-banner" id="context-banner">
+      <div class="context-banner-label">Activating pipeline opportunity</div>
+      <div class="context-banner-name" id="banner-name"></div>
+      <div class="context-banner-meta" id="banner-meta"></div>
+    </div>
+
+    <!-- Error state (no leadId / lead not found) -->
+    <div class="error-state" id="error-state">
+      <strong>Lead not found</strong><br />
+      <span id="error-state-msg">No lead ID was provided. Please open this page from the Lead List.</span>
+      <br /><br />
+      <a href="lead-list.html" style="color:var(--danger);font-weight:700;">← Back to Lead List</a>
+    </div>
+
+    <!-- Validation / save error alert -->
+    <div class="alert alert-error" id="alert-error">
+      <span>&#10005;</span>
+      <span id="alert-error-msg">Please correct the errors below.</span>
+    </div>
+
+    <!-- Success screen (shown after save) -->
+    <div id="success-screen">
+      <div class="success-icon">&#10003;</div>
+      <div class="success-title" id="success-title">Opportunity created</div>
+      <div class="success-msg" id="success-msg"></div>
+      <a class="btn-view-pipeline" href="project-list.html">View Pipeline</a>
+    </div>
+
+    <!-- Main form -->
+    <div class="form-card" id="main-form">
+
+      <!-- Section 1: Opportunity Identity -->
+      <div class="form-section">
+        <div class="section-header">
+          <div class="section-icon">&#127959;</div>
+          <div class="section-title">Opportunity Identity</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label for="projectCode">Project Code <span class="required-star">*</span></label>
+            <input type="text" id="projectCode" placeholder="e.g. PBSUR123" autocomplete="off" />
+            <span class="field-error" id="err-projectCode">Please enter a project code.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="projectPhase">Project Phase</label>
+            <div class="select-wrap">
+              <select id="projectPhase">
+                <option value="Sales" selected>Sales</option>
+                <option value="Preliminaries">Preliminaries</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group span-2">
+            <label for="projectAddress">Project Address <span class="required-star">*</span></label>
+            <input
+              type="text" id="projectAddress"
+              placeholder="e.g. 12 Ocean Drive, Noosa Heads, QLD, 4567"
+              autocomplete="off"
+            />
+            <span class="field-error" id="err-projectAddress">Please enter the project address.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="projectType">Project Type <span class="required-star">*</span></label>
+            <div class="select-wrap">
+              <select id="projectType">
+                <option value="">— Select type —</option>
+                <option value="New Build">New Build</option>
+                <option value="KDRB">KDRB</option>
+                <option value="Duplex">Duplex</option>
+                <option value="Granny Flat">Granny Flat</option>
+                <option value="Renovation">Renovation</option>
+                <option value="Commercial">Commercial</option>
+                <option value="Extension">Extension</option>
+              </select>
+            </div>
+            <span class="field-error" id="err-projectType">Please select a project type.</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Section 2: Budget -->
+      <div class="form-section">
+        <div class="section-header">
+          <div class="section-icon">&#128178;</div>
+          <div class="section-title">Budget</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label for="estimatedBudget">Estimated Budget (ex GST)</label>
+            <div class="currency-wrap">
+              <span class="currency-symbol">$</span>
+              <input
+                type="number" id="estimatedBudget"
+                placeholder="e.g. 450000" min="0" step="1000"
+              />
+            </div>
+            <p class="field-hint">Contract value will be recorded when a preliminary agreement is signed.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Section 3: Pipeline & Likelihood -->
+      <div class="form-section">
+        <div class="section-header">
+          <div class="section-icon">&#128200;</div>
+          <div class="section-title">Pipeline &amp; Likelihood</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label for="likelihoodPct">Likelihood %</label>
+            <input
+              type="number" id="likelihoodPct"
+              value="50" min="0" max="100" step="5"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Likelihood Level</label>
+            <div id="likelihood-level-display" style="padding-top:6px;">
+              <span class="likelihood-badge lh-medium" id="likelihood-badge">Medium</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="expectedCommencementMonth">Expected Commencement Month</label>
+            <input type="month" id="expectedCommencementMonth" />
+          </div>
+
+          <div class="form-group span-2">
+            <label for="pipelineNotes">Pipeline Notes</label>
+            <textarea id="pipelineNotes" placeholder="Notes on this pipeline opportunity..."></textarea>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Section 4: Indicative Dates -->
+      <div class="form-section">
+        <div class="section-header">
+          <div class="section-icon">&#128197;</div>
+          <div class="section-title">Indicative Dates</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="section-note">
+          These are working target dates and will be updated as the opportunity progresses.
+        </div>
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label for="consultDate">Consult Date</label>
+            <input type="date" id="consultDate" />
+          </div>
+
+          <div class="form-group">
+            <label for="conceptDate">Concept Date</label>
+            <input type="date" id="conceptDate" />
+          </div>
+
+          <div class="form-group">
+            <label for="proposalDate">Proposal Date</label>
+            <input type="date" id="proposalDate" />
+          </div>
+
+          <div class="form-group">
+            <label for="preliminaryTargetDate">Preliminary Target Date</label>
+            <input type="date" id="preliminaryTargetDate" />
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Section 5: Sales -->
+      <div class="form-section">
+        <div class="section-header">
+          <div class="section-icon">&#128100;</div>
+          <div class="section-title">Sales</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label for="salesPersonId">Sales Person</label>
+            <div class="select-wrap">
+              <select id="salesPersonId">
+                <option value="">— Unassigned —</option>
+                <!-- Populated from Firestore staffmembers -->
+              </select>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Form footer -->
+      <div class="form-footer">
+        <div class="footer-hint">Fields marked <span>*</span> are required</div>
+        <div class="form-actions">
+          <a class="btn-cancel" href="lead-list.html">Cancel</a>
+          <button class="btn-activate" id="btn-activate" type="button">
+            &#9654; Activate Opportunity
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module">
+
+    import { auth, db } from "./firebase-config.js";
+
+    import {
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    import {
+      collection,
+      doc,
+      getDoc,
+      getDocs,
+      addDoc,
+      updateDoc,
+      query,
+      where,
+      orderBy,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── DOM refs ────────────────────────────────────────────────────────────
+    const loadingOverlay  = document.getElementById("loading-overlay");
+    const topbarUserEmail = document.getElementById("topbar-user-email");
+    const btnSignOut      = document.getElementById("btn-signout");
+    const btnActivate     = document.getElementById("btn-activate");
+    const contextBanner   = document.getElementById("context-banner");
+    const bannerName      = document.getElementById("banner-name");
+    const bannerMeta      = document.getElementById("banner-meta");
+    const errorState      = document.getElementById("error-state");
+    const errorStateMsg   = document.getElementById("error-state-msg");
+    const alertError      = document.getElementById("alert-error");
+    const alertErrorMsg   = document.getElementById("alert-error-msg");
+    const successScreen   = document.getElementById("success-screen");
+    const successTitle    = document.getElementById("success-title");
+    const successMsg      = document.getElementById("success-msg");
+    const mainForm        = document.getElementById("main-form");
+    const likelihoodInput = document.getElementById("likelihoodPct");
+    const likelihoodBadge = document.getElementById("likelihood-badge");
+
+    let currentUser = null;
+    let leadId      = null;
+    let leadData    = null;
+
+    // ── Auth guard ──────────────────────────────────────────────────────────
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) { window.location.href = "login.html"; return; }
+
+      try {
+        const roleDoc = await getDoc(doc(db, "userroles", user.uid));
+        const role    = roleDoc.exists() ? roleDoc.data().role : null;
+        if (role !== "director" && role !== "sales") {
+          window.location.href = "login.html?error=unauthorised";
+          return;
+        }
+      } catch (e) {
+        window.location.href = "login.html?error=unauthorised";
+        return;
+      }
+
+      currentUser = user;
+      topbarUserEmail.textContent = user.email;
+
+      // Hide loading overlay
+      loadingOverlay.classList.add("hidden");
+      setTimeout(() => loadingOverlay.style.display = "none", 350);
+
+      // Read leadId from URL params
+      const params = new URLSearchParams(window.location.search);
+      leadId = params.get("leadId");
+
+      if (!leadId) {
+        showErrorState("No lead ID was provided. Please open this page from the Lead List.");
+        return;
+      }
+
+      // Load lead and staff in parallel
+      await Promise.all([loadLead(leadId), loadSalesStaff()]);
+    });
+
+    // ── Show error state (hides form) ───────────────────────────────────────
+    function showErrorState(msg) {
+      mainForm.style.display   = "none";
+      contextBanner.classList.remove("show");
+      errorStateMsg.textContent = msg;
+      errorState.classList.add("show");
+    }
+
+    // ── Load lead from Firestore and pre-populate form ──────────────────────
+    async function loadLead(id) {
+      try {
+        const leadSnap = await getDoc(doc(db, "leads", id));
+        if (!leadSnap.exists()) {
+          showErrorState("The lead with ID \"" + id + "\" could not be found in Firestore.");
+          return;
+        }
+        leadData = leadSnap.data();
+
+        // Show context banner
+        const fullName = ((leadData.firstName || "") + " " + (leadData.lastName || "")).trim() || "Unknown Contact";
+        bannerName.textContent = fullName;
+        bannerMeta.textContent =
+          (leadData.projectAddress || "No address recorded") +
+          (leadData.enquiryDate ? " · Enquiry: " + formatDate(leadData.enquiryDate) : "");
+        contextBanner.classList.add("show");
+
+        // Pre-populate fields
+        if (leadData.projectAddress) document.getElementById("projectAddress").value = leadData.projectAddress;
+        if (leadData.projectType)    document.getElementById("projectType").value    = leadData.projectType;
+        if (leadData.estimatedBudget !== null && leadData.estimatedBudget !== undefined) {
+          document.getElementById("estimatedBudget").value = leadData.estimatedBudget;
+        }
+
+      } catch (err) {
+        showErrorState("Failed to load lead: " + err.message);
+      }
+    }
+
+    // ── Load sales/director staff for the salesperson dropdown ──────────────
+    async function loadSalesStaff() {
+      try {
+        const q = query(
+          collection(db, "staffmembers"),
+          where("isActive", "==", true),
+          orderBy("lastName", "asc")
+        );
+        const snap = await getDocs(q);
+        const select = document.getElementById("salesPersonId");
+
+        snap.forEach(docSnap => {
+          const s = docSnap.data();
+          // Only include sales and director roles
+          if (s.role === "Sales" || s.role === "Director" ||
+              s.role === "sales" || s.role === "director") {
+            const opt = document.createElement("option");
+            opt.value       = docSnap.id;
+            opt.textContent = ((s.firstName || "") + " " + (s.lastName || "")).trim();
+            select.appendChild(opt);
+          }
+        });
+      } catch (err) {
+        // Non-fatal — dropdown stays as "Unassigned"
+        console.warn("Could not load staff:", err.message);
+      }
+    }
+
+    // ── Likelihood % → level ────────────────────────────────────────────────
+    function getLikelihoodLevel(pct) {
+      if (pct >= 70) return "High";
+      if (pct >= 40) return "Medium";
+      return "Low";
+    }
+
+    function updateLikelihoodBadge() {
+      const pct   = parseInt(likelihoodInput.value) || 0;
+      const level = getLikelihoodLevel(pct);
+      const clsMap = { High: "lh-high", Medium: "lh-medium", Low: "lh-low" };
+      likelihoodBadge.textContent  = level;
+      likelihoodBadge.className    = "likelihood-badge " + (clsMap[level] || "lh-medium");
+    }
+
+    likelihoodInput.addEventListener("input", updateLikelihoodBadge);
+
+    // ── Australian fiscal year ──────────────────────────────────────────────
+    function getFiscalYear(dateStr) {
+      const d     = new Date(dateStr);
+      const year  = d.getFullYear();
+      const month = d.getMonth() + 1;
+      if (month >= 7) return `${year}-${String(year + 1).slice(2)}`;
+      return `${year - 1}-${String(year).slice(2)}`;
+    }
+
+    // ── Parse suburb and state from address ─────────────────────────────────
+    function parseAddress(address) {
+      if (!address) return { projectSuburb: "", projectState: "" };
+      const parts = address.split(",").map(p => p.trim());
+      return { projectSuburb: parts[1] || "", projectState: parts[2] || "" };
+    }
+
+    // ── Format date for display ─────────────────────────────────────────────
+    function formatDate(isoStr) {
+      if (!isoStr) return "";
+      const months = ["Jan","Feb","Mar","Apr","May","Jun",
+                      "Jul","Aug","Sep","Oct","Nov","Dec"];
+      const d = new Date(isoStr + "T00:00:00");
+      return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+    }
+
+    // ── Validate ────────────────────────────────────────────────────────────
+    function validate() {
+      let valid = true;
+
+      function setErr(fieldId, errId, hasError) {
+        const field = document.getElementById(fieldId);
+        const err   = document.getElementById(errId);
+        if (hasError) {
+          field.classList.add("error"); err.classList.add("show"); valid = false;
+        } else {
+          field.classList.remove("error"); err.classList.remove("show");
+        }
+      }
+
+      setErr("projectCode",    "err-projectCode",    !document.getElementById("projectCode").value.trim());
+      setErr("projectAddress", "err-projectAddress", !document.getElementById("projectAddress").value.trim());
+      setErr("projectType",    "err-projectType",    !document.getElementById("projectType").value);
+
+      return valid;
+    }
+
+    // ── Save ────────────────────────────────────────────────────────────────
+    async function handleActivate() {
+      alertError.classList.remove("show");
+
+      if (!validate()) {
+        alertErrorMsg.textContent = "Please fill in all required fields before activating.";
+        alertError.classList.add("show");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+
+      btnActivate.disabled = true;
+      btnActivate.innerHTML = '<span class="spinner"></span> Activating...';
+
+      try {
+        const today         = new Date().toISOString().split("T")[0];
+        const address       = document.getElementById("projectAddress").value.trim();
+        const { projectSuburb, projectState } = parseAddress(address);
+        const pctVal        = parseInt(document.getElementById("likelihoodPct").value) || 50;
+        const budgetVal     = document.getElementById("estimatedBudget").value;
+        const projectCode   = document.getElementById("projectCode").value.trim();
+
+        const projectData = {
+          projectCode:               projectCode,
+          leadId:                    leadId,
+          projectAddress:            address,
+          projectSuburb:             projectSuburb,
+          projectState:              projectState,
+          projectType:               document.getElementById("projectType").value,
+          projectPhase:              document.getElementById("projectPhase").value,
+          estimatedBudget:           budgetVal ? parseFloat(budgetVal) : null,
+          likelihoodPct:             pctVal / 100,
+          likelihoodLevel:           getLikelihoodLevel(pctVal),
+          expectedCommencementMonth: document.getElementById("expectedCommencementMonth").value,
+          pipelineNotes:             document.getElementById("pipelineNotes").value.trim(),
+          consultDate:               document.getElementById("consultDate").value,
+          conceptDate:               document.getElementById("conceptDate").value,
+          proposalDate:              document.getElementById("proposalDate").value,
+          preliminaryTargetDate:     document.getElementById("preliminaryTargetDate").value,
+          salesPersonId:             document.getElementById("salesPersonId").value,
+          fiscalYear:                getFiscalYear(today),
+          currentStage:              "",
+          nextStage:                 "",
+          nextStageDate:             "",
+          contractValueGST:          0,
+          supervisorId:              "",
+          createdAt:                 serverTimestamp(),
+          updatedAt:                 serverTimestamp(),
+          createdBy:                 currentUser.uid
+        };
+
+        // Write new project document
+        const projectRef = await addDoc(collection(db, "projects"), projectData);
+
+        // Update originating lead
+        await updateDoc(doc(db, "leads", leadId), {
+          convertedToProject: true,
+          projectId:          projectRef.id,
+          updatedAt:          serverTimestamp()
+        });
+
+        // Show success screen
+        mainForm.style.display      = "none";
+        contextBanner.classList.remove("show");
+        successTitle.textContent    = "Pipeline opportunity " + projectCode + " created successfully";
+        successMsg.textContent      =
+          "The lead has been converted and the project record has been created. " +
+          "Financial details and team assignments can be added when a preliminary agreement is signed.";
+        successScreen.classList.add("show");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+
+      } catch (err) {
+        console.error("Error creating project:", err);
+        alertErrorMsg.textContent = "Failed to create opportunity: " + err.message;
+        alertError.classList.add("show");
+        btnActivate.disabled  = false;
+        btnActivate.innerHTML = "&#9654; Activate Opportunity";
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }
+
+    // ── Event listeners ─────────────────────────────────────────────────────
+    btnActivate.addEventListener("click", handleActivate);
+
+    btnSignOut.addEventListener("click", async () => {
+      await signOut(auth);
+      window.location.href = "login.html";
+    });
+
+    // Clear field errors on input
+    document.querySelectorAll("input, select").forEach(el => {
+      el.addEventListener("input", () => {
+        el.classList.remove("error");
+        const errEl = document.getElementById("err-" + el.id);
+        if (errEl) errEl.classList.remove("show");
+      });
+    });
+
+  </script>
+</body>
+</html>

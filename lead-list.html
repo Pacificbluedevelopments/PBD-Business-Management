@@ -526,6 +526,38 @@
     }
     .edit-save-msg.show { display: inline; }
 
+    /* ── Activate opportunity button ── */
+    .btn-activate-opp {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 5px 14px;
+      background: var(--gold);
+      border: none;
+      border-radius: var(--radius);
+      color: var(--navy);
+      cursor: pointer;
+      transition: background 0.15s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    .btn-activate-opp:hover { background: var(--gold-light); }
+
+    /* Badge shown when lead is already converted */
+    .badge-converted {
+      display: inline-block;
+      padding: 5px 12px;
+      background: #e8eaed;
+      color: var(--text-muted);
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
     /* ── Currency input in edit panel ── */
     .currency-wrap { position: relative; }
     .currency-wrap input { padding-left: 24px; }
@@ -1081,6 +1113,13 @@
                   onclick="closeEditPanel()"
                 >Cancel</button>
                 <span class="edit-save-msg" id="ep-save-msg-${lead.id}">&#10003; Changes saved</span>
+                ${lead.convertedToProject
+                  ? `<span class="badge-converted">&#10003; Opportunity Created</span>`
+                  : (lead.qualifiedStatus === "Yes"
+                      ? `<a class="btn-activate-opp" href="project-create.html?leadId=${lead.id}">&#9654; Activate Opportunity</a>`
+                      : ""
+                    )
+                }
               </div>
 
             </div>
