@@ -6,7 +6,8 @@
   Sign-in page for all users.
 
   On successful authentication:
-    - Reads the user's role from Firebase Auth custom claims
+    - Reads the user's role from the Firestore "userroles" collection
+      (document ID = Firebase Auth UID, field "role")
     - Redirects to the correct dashboard for their role:
         director   → admin-setup.html
         sales      → lead-entry.html       (Phase 1)
@@ -23,7 +24,6 @@
   <title>Sign In — Pacific Blue Developments</title>
 
   <style>
-    /* ── Design tokens ── */
     :root {
       --navy:        #1B2A3B;
       --navy-light:  #243548;
@@ -44,7 +44,6 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ── Full-page layout ── */
     body {
       font-family: Arial, Helvetica, sans-serif;
       background: var(--navy-deeper);
@@ -56,7 +55,6 @@
       overflow: hidden;
     }
 
-    /* Subtle geometric background pattern */
     body::before {
       content: "";
       position: fixed;
@@ -79,7 +77,6 @@
       pointer-events: none;
     }
 
-    /* Glow accent top-left */
     body::after {
       content: "";
       position: fixed;
@@ -91,7 +88,6 @@
       pointer-events: none;
     }
 
-    /* ── Login card ── */
     .login-card {
       width: 100%;
       max-width: 420px;
@@ -109,17 +105,10 @@
     }
 
     @keyframes cardAppear {
-      from {
-        opacity: 0;
-        transform: translateY(24px) scale(0.97);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
+      from { opacity: 0; transform: translateY(24px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    /* ── Card header / branding ── */
     .card-header {
       padding: 36px 36px 28px;
       text-align: center;
@@ -157,7 +146,6 @@
       text-transform: uppercase;
     }
 
-    /* ── Card body / form ── */
     .card-body { padding: 28px 36px 36px; }
 
     .form-heading {
@@ -168,7 +156,6 @@
       letter-spacing: 0.2px;
     }
 
-    /* ── Alert messages ── */
     .alert {
       padding: 12px 14px;
       border-radius: var(--radius);
@@ -190,10 +177,7 @@
       color: var(--gold-light);
     }
 
-    /* ── Form elements ── */
-    .form-group {
-      margin-bottom: 18px;
-    }
+    .form-group { margin-bottom: 18px; }
 
     .form-group label {
       display: block;
@@ -215,7 +199,7 @@
       font-family: Arial, sans-serif;
       font-size: 14px;
       transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-      -webkit-text-fill-color: var(--white); /* prevent browser autofill darkening */
+      -webkit-text-fill-color: var(--white);
     }
 
     .form-group input:focus {
@@ -225,11 +209,8 @@
       box-shadow: 0 0 0 3px rgba(184,134,11,0.15);
     }
 
-    .form-group input::placeholder {
-      color: rgba(255,255,255,0.25);
-    }
+    .form-group input::placeholder { color: rgba(255,255,255,0.25); }
 
-    /* Chrome autofill override */
     .form-group input:-webkit-autofill,
     .form-group input:-webkit-autofill:hover,
     .form-group input:-webkit-autofill:focus {
@@ -238,7 +219,6 @@
       caret-color: var(--white);
     }
 
-    /* ── Sign-in button ── */
     .btn-signin {
       width: 100%;
       padding: 13px;
@@ -264,16 +244,9 @@
       transform: translateY(-1px);
     }
 
-    .btn-signin:active:not(:disabled) {
-      transform: translateY(0);
-    }
+    .btn-signin:active:not(:disabled) { transform: translateY(0); }
+    .btn-signin:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    .btn-signin:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    /* Shimmer animation on the button */
     .btn-signin::after {
       content: "";
       position: absolute;
@@ -281,17 +254,11 @@
       left: -100%;
       width: 100%;
       height: 100%;
-      background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255,255,255,0.25),
-        transparent
-      );
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
       transition: left 0.5s;
     }
     .btn-signin:hover::after { left: 100%; }
 
-    /* ── Spinner ── */
     .spinner {
       display: inline-block;
       width: 14px;
@@ -305,7 +272,6 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Footer ── */
     .card-footer {
       text-align: center;
       padding: 0 36px 28px;
@@ -314,13 +280,9 @@
       line-height: 1.6;
     }
 
-    .card-footer a {
-      color: var(--gold-light);
-      text-decoration: none;
-    }
+    .card-footer a { color: var(--gold-light); text-decoration: none; }
     .card-footer a:hover { text-decoration: underline; }
 
-    /* ── Version badge ── */
     .version-badge {
       position: fixed;
       bottom: 16px;
@@ -333,29 +295,23 @@
 </head>
 <body>
 
-  <!-- Login card -->
   <div class="login-card">
 
-    <!-- Branding header -->
     <div class="card-header">
       <div class="logo-mark">PB</div>
       <div class="brand-name">Pacific Blue Developments</div>
       <div class="brand-tagline">Business Management</div>
     </div>
 
-    <!-- Form body -->
     <div class="card-body">
       <div class="form-heading">Sign in to your account</div>
 
-      <!-- Unauthorised redirect warning (set via URL param) -->
       <div class="alert alert-warning" id="alert-unauthorised">
         ⚠️ You do not have permission to access that page.
       </div>
 
-      <!-- Login error message -->
       <div class="alert alert-error" id="alert-error"></div>
 
-      <!-- Email field -->
       <div class="form-group">
         <label for="email">Email Address</label>
         <input
@@ -367,7 +323,6 @@
         />
       </div>
 
-      <!-- Password field -->
       <div class="form-group">
         <label for="password">Password</label>
         <input
@@ -378,13 +333,9 @@
         />
       </div>
 
-      <!-- Sign in button -->
-      <button class="btn-signin" id="btn-signin">
-        Sign In
-      </button>
+      <button class="btn-signin" id="btn-signin">Sign In</button>
     </div>
 
-    <!-- Footer -->
     <div class="card-footer">
       Forgotten your password? Contact your system administrator.<br />
       <a href="mailto:admin@pacificblue.com.au">admin@pacificblue.com.au</a>
@@ -392,21 +343,22 @@
 
   </div>
 
-  <!-- Version badge -->
   <div class="version-badge">Pacific Blue BMS · Phase 1</div>
 
-  <!-- ─────────────────────────────────────────────────────────────────────
-       Firebase SDK (ES Modules via CDN)
-       ───────────────────────────────────────────────────────────────────── -->
   <script type="module">
 
-    // Import Firebase Auth from the central config file
-    import { auth } from "./firebase-config.js";
+    // Import Firebase Auth and Firestore from the central config file
+    import { auth, db } from "./firebase-config.js";
 
     import {
       signInWithEmailAndPassword,
       onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    import {
+      doc,
+      getDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     // ── DOM references ──────────────────────────────────────────────────────
     const inputEmail        = document.getElementById("email");
@@ -416,12 +368,11 @@
     const alertUnauthorised = document.getElementById("alert-unauthorised");
 
     // ── Role → redirect mapping ─────────────────────────────────────────────
-    // Add redirect targets here as new pages are built.
     const ROLE_REDIRECTS = {
       director:   "admin-setup.html",
-      sales:      "lead-entry.html",       // Phase 1 — to be built
-      supervisor: "operations-board.html", // Phase 2 — to be built
-      accounts:   "revenue-forecast.html"  // Phase 2 — to be built
+      sales:      "lead-entry.html",
+      supervisor: "operations-board.html",
+      accounts:   "revenue-forecast.html"
     };
 
     // ── Check URL params for redirect error ─────────────────────────────────
@@ -431,33 +382,42 @@
     }
 
     // ── If user is already signed in, redirect immediately ──────────────────
-    // Use onAuthStateChanged so we wait for Firebase to restore session.
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         await redirectByRole(user);
       }
     });
 
-    // ── Helper: get role from token and redirect ────────────────────────────
+    // ── Helper: read role from Firestore userroles collection and redirect ───
+    // Role document: userroles/{uid} → { role: "director" | "sales" | etc. }
     async function redirectByRole(user) {
       try {
-        // Force-refresh to ensure we have the latest custom claims
-        const tokenResult = await user.getIdTokenResult(true);
-        const role = tokenResult.claims.role;
+        const roleDoc = await getDoc(doc(db, "userroles", user.uid));
+
+        if (!roleDoc.exists()) {
+          showError(
+            "Your account does not have a role assigned. " +
+            "Please contact your administrator."
+          );
+          btnSignIn.disabled = false;
+          btnSignIn.textContent = "Sign In";
+          return;
+        }
+
+        const role = roleDoc.data().role;
         const destination = ROLE_REDIRECTS[role];
 
         if (destination) {
           window.location.href = destination;
         } else {
-          // Authenticated but no valid role claim
           showError(
-            "Your account does not have a role assigned. " +
+            "Your account has an unrecognised role (" + role + "). " +
             "Please contact your administrator."
           );
-          // Reset button state
           btnSignIn.disabled = false;
           btnSignIn.textContent = "Sign In";
         }
+
       } catch (err) {
         showError("Could not verify your account role. Please try again.");
         btnSignIn.disabled = false;
@@ -470,11 +430,6 @@
       alertUnauthorised.classList.remove("show");
       alertError.textContent = message;
       alertError.classList.add("show");
-      // Shake the card slightly for feedback
-      alertError.style.animation = "none";
-      requestAnimationFrame(() => {
-        alertError.style.animation = "";
-      });
     }
 
     // ── Sign-in handler ─────────────────────────────────────────────────────
@@ -482,11 +437,9 @@
       const email    = inputEmail.value.trim();
       const password = inputPassword.value;
 
-      // Clear previous errors
       alertError.classList.remove("show");
       alertError.textContent = "";
 
-      // Basic field validation
       if (!email) {
         showError("Please enter your email address.");
         inputEmail.focus();
@@ -498,18 +451,14 @@
         return;
       }
 
-      // Disable button and show loading state
       btnSignIn.disabled = true;
       btnSignIn.innerHTML = `<span class="spinner"></span>Signing in…`;
 
       try {
-        // Attempt Firebase Authentication
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // On success, redirect based on role (handled above)
         await redirectByRole(userCredential.user);
 
       } catch (err) {
-        // Map Firebase error codes to user-friendly messages
         let message;
         switch (err.code) {
           case "auth/user-not-found":
@@ -533,19 +482,13 @@
             message = "Sign-in failed. Please try again.";
         }
         showError(message);
-
-        // Re-enable button
         btnSignIn.disabled = false;
         btnSignIn.textContent = "Sign In";
       }
     }
 
     // ── Event listeners ─────────────────────────────────────────────────────
-
-    // Click the Sign In button
     btnSignIn.addEventListener("click", handleSignIn);
-
-    // Press Enter in either field
     inputEmail.addEventListener("keydown",    e => { if (e.key === "Enter") inputPassword.focus(); });
     inputPassword.addEventListener("keydown", e => { if (e.key === "Enter") handleSignIn(); });
 
