@@ -175,7 +175,6 @@
       line-height: 1.5;
       box-shadow: 0 2px 8px rgba(26,122,74,0.3);
     }
-    #banner-success.show { display: flex; }
 
     .banner-icon {
       width: 28px;
@@ -807,17 +806,14 @@
     }
 
     // ── Show success banner ─────────────────────────────────────────────────
-    // Displays the solid green banner and hides it after 5 seconds.
-    // This function is completely independent of resetForm() — the two do not
-    // call each other, ensuring the banner cannot be hidden prematurely.
+    // Uses inline style directly to avoid any CSS class/specificity issues.
     let successTimer = null;
     function showSuccessBanner(message) {
-      // Cancel any existing timer so a rapid double-save doesn't cause issues
       if (successTimer) clearTimeout(successTimer);
       bannerSuccessMsg.textContent = message;
-      bannerSuccess.classList.add("show");
+      bannerSuccess.style.display = "flex";
       successTimer = setTimeout(() => {
-        bannerSuccess.classList.remove("show");
+        bannerSuccess.style.display = "none";
         successTimer = null;
       }, 5000);
     }
@@ -846,7 +842,7 @@
     // ── Clear Form button handler — resets fields AND hides both alerts ─────
     function handleClear() {
       resetFormFields();
-      bannerSuccess.classList.remove("show");
+      bannerSuccess.style.display = "none";
       if (successTimer) { clearTimeout(successTimer); successTimer = null; }
       hideErrorAlert();
     }
