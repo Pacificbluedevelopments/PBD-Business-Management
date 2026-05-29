@@ -19,13 +19,12 @@ import { getAuth }        from "https://www.gstatic.com/firebasejs/10.12.2/fireb
 // Pacific Blue Developments — Firebase project: pbd-business-management
 // -----------------------------------------------------------------------------
 const firebaseConfig = {
-  apiKey:            "AIzaSyDt24CTidD9kkNn_D6b1A9M0LMgSG0Th0I",
-  authDomain:        "pbd-business-management.firebaseapp.com",
-  projectId:         "pbd-business-management",
-  storageBucket:     "pbd-business-management.firebasestorage.app",
-  messagingSenderId: "360438606646",
-  appId:             "1:360438606646:web:d3b30c947ac46a923da197",
-  measurementId:     "G-VKRPWEHC7P"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 // -----------------------------------------------------------------------------
 
