@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Detail — Pacific Blue</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Page-specific overrides ── */
+
+    /* Phase / likelihood badges */
+    .phase-badge { display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600; }
+    .ph-sales         { background:#F5F4F2;color:#6B7280; }
+    .ph-preliminaries { background:#EBF4FB;color:#1A5276; }
+    .ph-construction  { background:#FEF9E7;color:#B7791F; }
+    .ph-pc            { background:#EAF5EF;color:#1A7A4A; }
+    .ph-completed     { background:#EAFAF1;color:#2D6A4F; }
+    .ph-onhold        { background:#FDEDEC;color:#9B2335; }
+    .ph-cancelled     { background:#F5F4F2;color:#9CA3AF; }
+
+    .lh-badge { display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600; }
+    .lh-high   { background:#EAF5EF;color:#2D6A4F; }
+    .lh-medium { background:#FEF3E2;color:#B7791F; }
+    .lh-low    { background:#FDEDF0;color:#9B2335; }
+
+    /* Page header bar */
+    .proj-header-bar {
+      display:flex;align-items:flex-start;justify-content:space-between;
+      flex-wrap:wrap;gap:12px;margin-bottom:24px;
+    }
+    .proj-header-left { flex:1;min-width:0; }
+    .proj-back {
+      font-size:12px;color:#B7B09C;text-decoration:none;
+      display:inline-flex;align-items:center;gap:4px;margin-bottom:6px;
+      font-weight:500;
+    }
+    .proj-back:hover { color:#333F48;text-decoration:none; }
+    .proj-title-line { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
+    .proj-code-title { font-size:22px;font-weight:600;color:#333F48; }
+    .proj-address-sub { font-size:13px;color:#6B7280;margin-top:3px; }
+    .proj-updated { font-size:11px;color:#9CA3AF;margin-top:4px; }
+
+    /* Section cards */
+    .section-card {
+      background:#fff;border:1px solid #E5E3E0;border-radius:10px;
+      margin-bottom:20px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);
+    }
+    .section-header {
+      display:flex;align-items:center;justify-content:space-between;
+      padding:12px 20px;background:#333F48;gap:10px;flex-wrap:wrap;
+    }
+    .section-title {
+      font-size:12px;font-weight:600;color:#fff;
+      text-transform:uppercase;letter-spacing:0.5px;
+      display:flex;align-items:center;gap:8px;
+    }
+    .section-body { padding:20px; }
+
+    /* Section edit footer */
+    .section-edit-footer {
+      display:none;align-items:center;gap:10px;flex-wrap:wrap;
+      padding:12px 20px;border-top:1px solid #E5E3E0;background:#F5F4F2;
+    }
+    .section-edit-footer.show { display:flex; }
+    .btn-save-section {
+      padding:7px 16px;background:#333F48;color:#fff;border:none;border-radius:6px;
+      font-family:'Poppins',sans-serif;font-size:13px;font-weight:500;cursor:pointer;
+    }
+    .btn-save-section:hover:not(:disabled) { background:#2a333c; }
+    .btn-save-section:disabled { opacity:.5;cursor:not-allowed; }
+    .btn-cancel-section {
+      padding:7px 12px;background:transparent;color:#6B7280;
+      border:1px solid #E5E3E0;border-radius:6px;
+      font-family:'Poppins',sans-serif;font-size:13px;cursor:pointer;
+    }
+    .btn-cancel-section:hover { border-color:#333F48;color:#333F48; }
+    .section-save-msg  { font-size:12px;font-weight:600;color:#2D6A4F;display:none; }
+    .section-save-msg.show  { display:inline; }
+    .section-error-msg { font-size:12px;font-weight:600;color:#9B2335;display:none; }
+    .section-error-msg.show { display:inline; }
+
+    /* Edit section button */
+    .btn-edit-section {
+      padding:4px 11px;background:rgba(255,255,255,0.1);
+      border:1px solid rgba(255,255,255,0.25);border-radius:5px;
+      font-family:'Poppins',sans-serif;font-size:11px;font-weight:500;
+      color:#fff;cursor:pointer;transition:background 0.15s;
+    }
+    .btn-edit-section:hover { background:rgba(255,255,255,0.2); }
+
+    /* Display grid */
+    .display-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px 24px; }
+    .display-grid.cols-3 { grid-template-columns:1fr 1fr 1fr; }
+    .display-item { display:flex;flex-direction:column;gap:3px; }
+    .display-label {
+      font-size:10px;font-weight:600;color:#6B7280;
+      text-transform:uppercase;letter-spacing:0.4px;
+      font-family:'Poppins',sans-serif;
+    }
+    .display-value { font-size:14px;color:#333F48;font-weight:400; }
+    .display-value.calculated { color:#B7791F;font-weight:500; }
+
+    /* Edit grid */
+    .edit-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px 20px; }
+    .edit-grid.cols-3 { grid-template-columns:1fr 1fr 1fr; }
+    .edit-group { display:flex;flex-direction:column;gap:5px; }
+    .edit-group.span-2 { grid-column:span 2; }
+    .edit-group label {
+      font-size:10px;font-weight:600;color:#6B7280;
+      text-transform:uppercase;letter-spacing:0.4px;
+      font-family:'Poppins',sans-serif;
+    }
+    .edit-group input,
+    .edit-group select,
+    .edit-group textarea {
+      font-family:'Poppins',sans-serif;font-size:13px;color:#333F48;
+      background:#fff;border:1px solid #E5E3E0;border-radius:6px;
+      padding:7px 10px;width:100%;appearance:none;transition:border-color 0.2s;
+    }
+    .edit-group input:focus,.edit-group select:focus,.edit-group textarea:focus {
+      outline:none;border-color:#333F48;
+    }
+    .edit-group input:disabled,.edit-group select:disabled {
+      background:#F5F4F2;color:#9CA3AF;cursor:not-allowed;
+    }
+    .edit-group textarea { resize:vertical;min-height:72px; }
+    .select-wrap { position:relative; }
+    .select-wrap::after {
+      content:"▾";position:absolute;right:9px;top:50%;
+      transform:translateY(-50%);font-size:10px;color:#6B7280;pointer-events:none;
+    }
+    .field-note { font-size:11px;color:#6B7280;margin-top:2px; }
+    .currency-wrap { position:relative; }
+    .currency-symbol { position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#6B7280;pointer-events:none; }
+    .currency-wrap input { padding-left:26px; }
+    .currency-sym { position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#6B7280;pointer-events:none; }
+
+    /* Phase action buttons */
+
+    /* Override dialog */
+    .override-phase-link {
+      background:none;border:none;font-size:11px;color:#9CA3AF;cursor:pointer;
+      text-decoration:underline;margin-left:6px;font-family:'Poppins',sans-serif;
+    }
+    .override-phase-link:hover { color:#9B2335; }
+    .override-dialog { display:none;margin-top:10px;padding:14px;background:#FDEDEC;border:1px solid #F1B9C0;border-radius:6px;max-width:440px; }
+    .override-dialog.open { display:block; }
+    .override-dialog p { font-size:12px;color:#9B2335;margin-bottom:10px;line-height:1.5; }
+    .od-btns { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
+    .btn-override {
+      padding:6px 14px;background:#9B2335;color:#fff;border:none;border-radius:6px;
+      font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;cursor:pointer;
+    }
+    .btn-override:hover { background:#7d1c2b; }
+
+    /* Days chip */
+    .days-chip { display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;margin-left:6px; }
+    .days-chip.overdue { background:#FDEDF0;color:#9B2335; }
+    .days-chip.soon    { background:#FEF3E2;color:#B7791F; }
+    .days-chip.ok      { background:#EAF5EF;color:#2D6A4F; }
+
+    /* Spinner */
+    .spinner-sm {
+      display:inline-block;width:12px;height:12px;
+      border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;
+      border-radius:50%;animation:spin 0.7s linear infinite;
+    }
+    .spinner-sm-dark {
+      display:inline-block;width:12px;height:12px;
+      border:2px solid rgba(51,63,72,0.15);border-top-color:#333F48;
+      border-radius:50%;animation:spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* ── CLAIM SCHEDULE ── */
+    .cs-mode-badge { display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600; }
+    .cs-mode-indicative  { background:#FEF3E2;color:#B7791F; }
+    .cs-mode-contracted  { background:#EAF5EF;color:#2D6A4F; }
+    .cs-warning-banner {
+      display:none;padding:10px 20px;background:#FEF3E2;border-bottom:1px solid #F6D860;
+      font-size:13px;color:#B7791F;line-height:1.5;
+    }
+    .cs-warning-banner.show { display:block; }
+    .cs-table-wrap { overflow-x:auto;margin-top:10px; }
+    .cs-table { width:100%;border-collapse:collapse;font-family:'Poppins',sans-serif;font-size:13px; }
+    .cs-table th {
+      background:#F5F4F2;padding:8px 10px;font-size:10px;font-weight:600;
+      color:#6B7280;text-align:left;text-transform:uppercase;letter-spacing:0.4px;
+      border-bottom:1px solid #E5E3E0;white-space:nowrap;
+    }
+    .cs-table td { padding:8px 10px;border-bottom:1px solid #E5E3E0;vertical-align:middle; }
+    .cs-table tr:last-child td { border-bottom:none; }
+    .cs-table input,.cs-table select {
+      font-family:'Poppins',sans-serif;font-size:12px;color:#333F48;
+      border:1px solid #E5E3E0;border-radius:5px;padding:4px 7px;
+      background:#fff;min-width:80px;
+    }
+    .cs-table input:focus,.cs-table select:focus { outline:none;border-color:#333F48; }
+    .cs-table input:disabled,.cs-table select:disabled { background:#F5F4F2;color:#9CA3AF; }
+    .cs-calculated { font-size:13px;color:#B7791F;font-weight:500; }
+    .cs-total-row { display:flex;align-items:center;gap:10px;padding:10px 0 0;font-size:13px; }
+    .cs-total-label { font-weight:600;color:#333F48; }
+    .cs-total-ok  { color:#2D6A4F;font-weight:600; }
+    .cs-total-bad { color:#9B2335;font-weight:600; }
+    .cs-variance-pos { color:#9B2335;font-size:11px;font-weight:600; }
+    .cs-variance-neg { color:#2D6A4F;font-size:11px;font-weight:600; }
+    .select-wrap-sm { position:relative;display:inline-block; }
+    .select-wrap-sm select { padding-right:22px; }
+    .select-wrap-sm::after { content:"▾";position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;color:#6B7280;pointer-events:none; }
+    .status-scheduled { color:#6B7280; }
+    .status-issued    { color:#1A5276; }
+    .status-received  { color:#2D6A4F; }
+    .status-overdue   { color:#9B2335; }
+    .cs-summary-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px; }
+    .cs-summary-item { background:#F5F4F2;border-radius:6px;padding:10px 14px; }
+    .cs-summary-label { font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.4px; }
+    .cs-summary-value { font-size:16px;font-weight:600;color:#333F48;margin-top:2px; }
+    .cs-bad { color:#9B2335; }
+
+    /* ── VARIATIONS ── */
+    .var-table { width:100%;border-collapse:collapse;font-family:'Poppins',sans-serif;font-size:13px; }
+    .var-table th {
+      background:#F5F4F2;padding:8px 12px;font-size:10px;font-weight:600;
+      color:#6B7280;text-align:left;text-transform:uppercase;letter-spacing:0.4px;
+      border-bottom:1px solid #E5E3E0;
+    }
+    .var-table td { padding:8px 12px;border-bottom:1px solid #E5E3E0;vertical-align:top; }
+    .var-table tr:last-child td { border-bottom:none; }
+    .var-status-badge { display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600; }
+    .var-pending  { background:#FEF3E2;color:#B7791F; }
+    .var-approved { background:#EAF5EF;color:#2D6A4F; }
+    .var-rejected { background:#FDEDF0;color:#9B2335; }
+    .var-discussing { background:#F5F4F2;color:#6B7280; }
+    .var-resolved   { background:#EAF5EF;color:#2D6A4F; }
+    .btn-var-sm {
+      padding:3px 8px;border:none;border-radius:5px;font-family:'Poppins',sans-serif;
+      font-size:11px;font-weight:600;cursor:pointer;
+    }
+    .btn-var-save   { background:#333F48;color:#fff; }
+    .btn-var-save:hover { background:#2a333c; }
+    .var-empty { color:#6B7280;font-size:13px;padding:10px 0; }
+
+    /* ── MEETING NOTES LIST ── */
+    .mn-item {
+      display:flex;align-items:flex-start;justify-content:space-between;
+      gap:10px;padding:10px 0;border-bottom:1px solid #E5E3E0;
+    }
+    .mn-item:last-child { border-bottom:none; }
+    .mn-date { font-size:12px;font-weight:600;color:#333F48;white-space:nowrap; }
+    .mn-phase { font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:#6B7280;margin-left:6px; }
+    .mn-preview { font-size:12px;color:#6B7280;margin-top:2px;line-height:1.5; }
+    .btn-mn-link { font-size:12px;color:#B7B09C;font-weight:600;text-decoration:none;white-space:nowrap; }
+    .btn-mn-link:hover { color:#333F48;text-decoration:underline; }
+
+    /* ── OVERRUN COLOURS ── */
+    .overrun-positive { color:#9B2335;font-weight:600; }
+    .overrun-negative { color:#2D6A4F;font-weight:600; }
+
+    /* ── Error state ── */
+    #error-state { display:none;padding:48px 24px;text-align:center; }
+    #error-state h2 { font-size:18px;font-weight:600;color:#9B2335;margin-bottom:8px; }
+    #error-state p  { font-size:14px;color:#6B7280; }
+
+    @media (max-width:768px) {
+      .display-grid,.display-grid.cols-3 { grid-template-columns:1fr; }
+      .edit-grid,.edit-grid.cols-3 { grid-template-columns:1fr; }
+      .edit-group.span-2 { grid-column:span 1; }
+      .cs-summary-grid { grid-template-columns:1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <main class="main-content">
+
+      <!-- Error state (hidden until needed) -->
+      <div id="error-state">
+        <h2>Project Not Found</h2>
+        <p id="error-msg">The requested project could not be loaded.</p>
+        <a href="all-projects.html" class="btn btn-primary" style="margin-top:16px;display:inline-flex">← Back to All Projects</a>
+      </div>
+
+      <!-- Page header (hidden until project loads) -->
+      <div id="page-header" style="display:none">
+        <div class="proj-header-bar">
+          <div class="proj-header-left">
+            <a class="proj-back" href="all-projects.html">← All Projects</a>
+            <div class="proj-title-line">
+              <span class="proj-code-title" id="header-code">—</span>
+              <span id="header-phase"></span>
+            </div>
+            <div class="proj-address-sub" id="header-address">—</div>
+            <div class="proj-updated" id="header-updated"></div>
+            <div class="page-subtitle" style="margin-top:2px">Project record — view and correct data</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sections container -->
+      <div id="sections-container"></div>
+
+    </main>
+  </div>
+
+  <button id="sidebar-hamburger" aria-label="Open menu">☰</button>
+  <div id="sidebar-overlay"></div>
+
+  <script type="module">
+    import { initNav }   from "./nav.js";
+    import { db }        from "./firebase-config.js";
+    import {
+      doc, getDoc, getDocs,
+      collection, query, orderBy, serverTimestamp, updateDoc, limit
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    const params       = new URLSearchParams(window.location.search);
+    const projectId    = params.get("projectId");
+    let   proj         = null;
+    let   lead         = null;
+    let   staffMap     = {};
+    let   marketPct    = 1.0;
+    let   activeEditSection = null;
+    let   currentUserRole   = null;
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const pageHeader        = document.getElementById("page-header");
+    const headerCode        = document.getElementById("header-code");
+    const headerAddress     = document.getElementById("header-address");
+    const headerPhase       = document.getElementById("header-phase");
+    const headerUpdated     = document.getElementById("header-updated");
+    const sectionsContainer = document.getElementById("sections-container");
+    const errorState        = document.getElementById("error-state");
+    const errorMsg          = document.getElementById("error-msg");
+
+    // ── Load functions ────────────────────────────────────────────────────────
+    async function loadStaff() {
+      const snap = await getDocs(collection(db, "staffmembers"));
+      snap.forEach(d => { staffMap[d.id] = d.data(); });
+    }
+
+    async function loadSettings() {
+      try {
+        const snap = await getDoc(doc(db, "settings", "global"));
+        if (snap.exists() && snap.data().marketConditionsPct != null)
+          marketPct = parseFloat(snap.data().marketConditionsPct);
+      } catch (e) {}
+    }
+
+    async function loadProject() {
+      if (!projectId) { showError("No project ID in URL."); return; }
+      const snap = await getDoc(doc(db, "projects", projectId));
+      if (!snap.exists()) { showError("Project document not found."); return; }
+      proj = { id: projectId, ...snap.data() };
+      // Try to load lead if linked
+      if (proj.leadId) {
+        try {
+          const ls = await getDoc(doc(db, "leads", proj.leadId));
+          if (ls.exists()) lead = ls.data();
+        } catch (e) {}
+      }
+      renderPage();
+      await initClaimSchedule();
+      await initPhaseWarnings();
+      await loadVariations();
+      await loadMeetingNotes();
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorState.style.display = "block";
+      pageHeader.style.display  = "none";
+    }
+
+    // ── Formatters ────────────────────────────────────────────────────────────
+    function fmt(val)          { return val || "—"; }
+    function formatCurrency(v) {
+      if (v === null || v === undefined || v === "") return "—";
+      return "$" + Number(v).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+    }
+    function formatDate(iso) {
+      if (!iso) return "—";
+      const mn = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const d  = new Date(iso + "T00:00:00");
+      return `${d.getDate()} ${mn[d.getMonth()]} ${d.getFullYear()}`;
+    }
+    function formatMonthYear(val) {
+      if (!val) return "—";
+      const mn = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const p  = val.split("-");
+      return p.length < 2 ? val : mn[parseInt(p[1])-1] + " " + p[0];
+    }
+    function formatTimestamp(ts) {
+      if (!ts) return "";
+      try {
+        const d = ts.toDate ? ts.toDate() : new Date(ts);
+        return "Last updated " + d.toLocaleDateString("en-AU") + " " + d.toLocaleTimeString("en-AU",{hour:"2-digit",minute:"2-digit"});
+      } catch (e) { return ""; }
+    }
+    function daysFromToday(iso) {
+      if (!iso) return null;
+      const d = new Date(iso + "T00:00:00");
+      return Math.ceil((d - new Date().setHours(0,0,0,0)) / 86400000);
+    }
+    function daysChip(iso) {
+      const d = daysFromToday(iso);
+      if (d === null) return "";
+      if (d < 0)   return `<span class="days-chip overdue">${Math.abs(d)}d overdue</span>`;
+      if (d <= 14) return `<span class="days-chip soon">${d}d</span>`;
+      return "";
+    }
+    function getLikelihoodLevel(pct) {
+      return pct >= 70 ? "High" : pct >= 40 ? "Medium" : "Low";
+    }
+    function staffName(id) {
+      if (!id) return "—";
+      const s = staffMap[id];
+      return s ? `${s.firstName||""} ${s.lastName||""}`.trim() || "—" : "—";
+    }
+    function phaseBadgeClass(phase) {
+      return {
+        "Sales":"ph-sales","Preliminaries":"ph-preliminaries","Construction":"ph-construction",
+        "Practical Completion":"ph-pc","Completed":"ph-completed","On Hold":"ph-onhold","Cancelled":"ph-cancelled"
+      }[phase] || "ph-sales";
+    }
+    function staffOptions(roles, selectedId) {
+      const rolesLC = roles.map(r => r.toLowerCase());
+      const opts = Object.entries(staffMap)
+        .filter(([, s]) => rolesLC.includes((s.role||"").toLowerCase()) && s.isActive !== false)
+        .sort(([,a],[,b]) => (a.lastName||"").localeCompare(b.lastName||""))
+        .map(([id, s]) => {
+          const name = `${s.firstName||""} ${s.lastName||""}`.trim();
+          return `<option value="${id}" ${id===selectedId?"selected":""}>${name}</option>`;
+        });
+      return `<option value="">— Unassigned —</option>` + opts.join("");
+    }
+    const STAGES = ["Consult","Concept","Proposal","Prelim","Contract","Commence","Base","Frame","Enclosed","Fixing","Tile & Paint","Practical Completion"];
+    function stageOptions(selected) {
+      return `<option value="">— Select —</option>` +
+        STAGES.map(s => `<option value="${s}" ${s===selected?"selected":""}>${s}</option>`).join("");
+    }
+
+    // ── renderPage ────────────────────────────────────────────────────────────
+    function renderPage() {
+      headerCode.textContent    = proj.projectCode || projectId;
+      headerAddress.textContent = proj.projectAddress || "—";
+      headerPhase.innerHTML     = `<span class="phase-badge ${phaseBadgeClass(proj.projectPhase)}">${proj.projectPhase||"—"}</span>`;
+      headerUpdated.textContent = formatTimestamp(proj.updatedAt);
+      pageHeader.style.display  = "block";
+
+      const pct          = Math.round((proj.likelihoodPct||0)*100);
+      const weightedValue= (proj.estimatedBudget||0)*(proj.likelihoodPct||0)*marketPct;
+      const contractExGST= proj.contractValueGST ? proj.contractValueGST/1.1 : null;
+      const marginPct    = proj.targetMarginPct||0;
+      const targetProfit = contractExGST ? contractExGST*(marginPct/100) : null;
+      const carpOverrun  = (proj.carpenterForecast||0)-(proj.carpenterBudget||0);
+      const carpOverrunPct = proj.carpenterBudget ? ((carpOverrun/proj.carpenterBudget)*100).toFixed(1) : null;
+      const clientName   = lead ? ((lead.firstName||"")+" "+(lead.lastName||"")).trim() : (proj.clientName||"—");
+      const lhLevel      = getLikelihoodLevel(pct);
+      const lhBadgeCls   = {High:"lh-high",Medium:"lh-medium",Low:"lh-low"}[lhLevel];
+      const canEditOverview = currentUserRole==="director"||currentUserRole==="sales";
+      const today        = new Date().toISOString().split("T")[0];
+
+      sectionsContainer.innerHTML = `
+
+        <!-- S1: Project Overview -->
+        <div class="section-card" id="sec-overview">
+          <div class="section-header">
+            <div class="section-title">Project Overview</div>
+            ${canEditOverview ? `<button class="btn-edit-section" onclick="startEdit('overview')">Edit</button>` : ""}
+          </div>
+          <div class="section-body">
+            <div class="display-grid cols-3" id="overview-display">
+              <div class="display-item"><div class="display-label">Project Code</div><div class="display-value">${fmt(proj.projectCode)}</div></div>
+              <div class="display-item"><div class="display-label">Client Name</div><div class="display-value">${clientName}</div></div>
+              <div class="display-item"><div class="display-label">Project Address</div><div class="display-value">${fmt(proj.projectAddress)}</div></div>
+              <div class="display-item"><div class="display-label">Project Type</div><div class="display-value">${fmt(proj.projectType)}</div></div>
+              <div class="display-item"><div class="display-label">Lot / DP</div><div class="display-value">${fmt(proj.lotDP)}</div></div>
+              <div class="display-item"><div class="display-label">Council Area</div><div class="display-value">${fmt(proj.councilArea)}</div></div>
+              <div class="display-item"><div class="display-label">Storeys</div><div class="display-value">${fmt(proj.storeys)}</div></div>
+              <div class="display-item"><div class="display-label">Bedrooms</div><div class="display-value">${fmt(proj.bedrooms)}</div></div>
+              <div class="display-item"><div class="display-label">Bathrooms</div><div class="display-value">${fmt(proj.bathrooms)}</div></div>
+              <div class="display-item"><div class="display-label">Garages</div><div class="display-value">${fmt(proj.garages)}</div></div>
+              <div class="display-item"><div class="display-label">Estimated Budget ex GST</div><div class="display-value">${formatCurrency(proj.estimatedBudget)}</div></div>
+              <div class="display-item"><div class="display-label">Lead Source</div><div class="display-value">${lead ? fmt(lead.leadSource) : fmt(proj.leadSource)}</div></div>
+              <div class="display-item"><div class="display-label">Sales Person</div><div class="display-value">${staffName(proj.salesPersonId)}</div></div>
+              <div class="display-item"><div class="display-label">Supervisor</div><div class="display-value">${staffName(proj.supervisorId)}</div></div>
+              <div class="display-item"><div class="display-label">Likelihood %</div><div class="display-value"><span class="lh-badge ${lhBadgeCls}">${pct}% ${lhLevel}</span></div></div>
+              <div class="display-item"><div class="display-label">Expected Commencement</div><div class="display-value">${formatMonthYear(proj.expectedCommencementMonth)}</div></div>
+              <div class="display-item"><div class="display-label">Fiscal Year</div><div class="display-value">${fmt(proj.fiscalYear)}</div></div>
+              <div class="display-item"><div class="display-label">Pipeline Notes</div><div class="display-value">${fmt(proj.pipelineNotes)}</div></div>
+            </div>
+            <div id="overview-edit" style="display:none;margin-top:14px">
+              <div class="edit-grid cols-3">
+                <div class="edit-group"><label>Project Code</label><input type="text" id="ef-projectCode" value="${proj.projectCode||""}" /></div>
+                <div class="edit-group"><label>Project Address</label><input type="text" id="ef-projectAddress" value="${proj.projectAddress||""}" /></div>
+                <div class="edit-group"><label>Project Type</label><div class="select-wrap"><select id="ef-projectType">${["New Build","KDRB","Duplex","Granny Flat","Renovation","Commercial","Extension"].map(t=>`<option value="${t}" ${proj.projectType===t?"selected":""}>${t}</option>`).join("")}</select></div></div>
+                <div class="edit-group"><label>Lot / DP</label><input type="text" id="ef-lotDP" value="${proj.lotDP||""}" /></div>
+                <div class="edit-group"><label>Council Area</label><input type="text" id="ef-councilArea" value="${proj.councilArea||""}" /></div>
+                <div class="edit-group"><label>Storeys</label><input type="number" id="ef-storeys" value="${proj.storeys||""}" min="1" max="10" step="0.5" /></div>
+                <div class="edit-group"><label>Bedrooms</label><input type="number" id="ef-bedrooms" value="${proj.bedrooms||""}" min="0" max="20" /></div>
+                <div class="edit-group"><label>Bathrooms</label><input type="number" id="ef-bathrooms" value="${proj.bathrooms||""}" min="0" max="20" /></div>
+                <div class="edit-group"><label>Garages</label><input type="number" id="ef-garages" value="${proj.garages||""}" min="0" max="10" /></div>
+                <div class="edit-group"><label>Estimated Budget ex GST</label><div class="currency-wrap"><span class="currency-symbol">$</span><input type="number" id="ef-estimatedBudget" value="${proj.estimatedBudget||""}" min="0" step="1000" /></div></div>
+                <div class="edit-group"><label>Sales Person</label><div class="select-wrap"><select id="ef-salesPersonId">${staffOptions(["sales","Sales","director","Director"],proj.salesPersonId)}</select></div></div>
+                <div class="edit-group"><label>Supervisor</label><div class="select-wrap"><select id="ef-supervisorId">${staffOptions(["supervisor","Supervisor","director","Director"],proj.supervisorId)}</select></div></div>
+                <div class="edit-group"><label>Likelihood %</label><input type="number" id="ef-likelihoodPct" value="${pct}" min="0" max="100" step="5" oninput="updateLhBadge()" /></div>
+                <div class="edit-group"><label>Likelihood Level</label><div style="padding-top:6px"><span class="lh-badge ${lhBadgeCls}" id="ef-lh-badge">${lhLevel}</span></div></div>
+                <div class="edit-group"><label>Expected Commencement</label><input type="month" id="ef-expectedCommencementMonth" value="${proj.expectedCommencementMonth||""}" /></div>
+                <div class="edit-group span-2"><label>Pipeline Notes</label><textarea id="ef-pipelineNotes">${proj.pipelineNotes||""}</textarea></div>
+              </div>
+            </div>
+          </div>
+          <div class="section-edit-footer" id="overview-footer">
+            <button class="btn-save-section" onclick="saveSection('overview')">Save</button>
+            <button class="btn-cancel-section" onclick="cancelEdit('overview')">Cancel</button>
+            <span class="section-save-msg" id="overview-save-msg"></span>
+            <span class="section-error-msg" id="overview-error-msg"></span>
+          </div>
+        </div>
+
+        <!-- S2: Phase & Financials -->
+        <div class="section-card" id="sec-financial">
+          <div class="section-header">
+            <div class="section-title">
+              Phase &amp; Financials
+              ${currentUserRole==="director" ? `<button class="override-phase-link" onclick="toggleOverrideDialog()">Override Phase</button>` : ""}
+            </div>
+            ${currentUserRole==="director" ? `<button class="btn-edit-section" onclick="startEdit('financial')">Edit</button>` : ""}
+          </div>
+          <div class="section-body">
+            <!-- Override dialog (Directors only) -->
+            <div class="override-dialog" id="override-dialog">
+              <p>⚠ Only use this for exceptional circumstances (e.g. project placed on hold or cancelled). Normal phase transitions happen in Sales and Construction Meeting Notes.</p>
+              <div class="od-btns">
+                <button class="btn-override" onclick="overridePhase('Completed')">Set Completed</button>
+                <button class="btn-override" onclick="overridePhase('On Hold')">Set On Hold</button>
+                <button class="btn-override" onclick="overridePhase('Cancelled')">Set Cancelled</button>
+                <button class="btn-phase-cancel-link" onclick="toggleOverrideDialog()">Cancel</button>
+              </div>
+            </div>
+
+            <div class="display-grid cols-3" id="financial-display" style="margin-top:4px">
+              <div class="display-item"><div class="display-label">Project Phase</div><div class="display-value"><span class="phase-badge ${phaseBadgeClass(proj.projectPhase)}">${proj.projectPhase||"—"}</span></div></div>
+              <div class="display-item"><div class="display-label">Contract Value inc GST</div><div class="display-value">${proj.contractValueGST ? formatCurrency(proj.contractValueGST) : "—"}</div></div>
+              <div class="display-item"><div class="display-label">Contract Value ex GST</div><div class="display-value calculated">${contractExGST ? formatCurrency(contractExGST) : "—"}</div></div>
+              <div class="display-item"><div class="display-label">Preliminary Fee inc GST</div><div class="display-value">${proj.preliminaryFeeGST ? formatCurrency(proj.preliminaryFeeGST) : "—"}</div></div>
+              <div class="display-item"><div class="display-label">Target Margin %</div><div class="display-value">${proj.targetMarginPct ? proj.targetMarginPct+"%" : "—"}</div></div>
+              <div class="display-item"><div class="display-label">Target Profit</div><div class="display-value calculated">${targetProfit ? formatCurrency(targetProfit) : "—"}</div></div>
+              <div class="display-item"><div class="display-label">Weighted Value</div><div class="display-value calculated">${formatCurrency(weightedValue)} <small style="color:#9CA3AF">(${Math.round(marketPct*100)}% market)</small></div></div>
+            </div>
+            <div id="financial-edit" style="display:none;margin-top:14px">
+              <div class="edit-grid cols-3">
+                <div class="edit-group"><label>Contract Value inc GST</label><div class="currency-wrap"><span class="currency-symbol">$</span><input type="number" id="ef-contractValueGST" value="${proj.contractValueGST||""}" min="0" step="1000" /></div></div>
+                <div class="edit-group"><label>Preliminary Fee inc GST</label><div class="currency-wrap"><span class="currency-symbol">$</span><input type="number" id="ef-preliminaryFeeGST" value="${proj.preliminaryFeeGST||""}" min="0" step="100" /></div></div>
+                <div class="edit-group"><label>Target Margin %</label><input type="number" id="ef-targetMarginPct" value="${proj.targetMarginPct||""}" min="0" max="100" step="0.5" /></div>
+              </div>
+            </div>
+
+            <!-- Key dates — read only -->
+            <div style="margin-top:14px;padding:12px 16px;background:#F5F4F2;border-radius:6px;font-size:13px;color:#6B7280;line-height:1.8">
+              ${proj.preliminaryDate ? `<div>✓ Preliminary Agreement signed — <strong style="color:#333F48">${formatDate(proj.preliminaryDate)}</strong>${proj.preliminaryFeeGST ? ` · Fee: <strong style="color:#333F48">${formatCurrency(proj.preliminaryFeeGST)} inc GST</strong>` : ""}</div>` : ""}
+              ${proj.contractDate    ? `<div>✓ Construction Contract signed — <strong style="color:#333F48">${formatDate(proj.contractDate)}</strong>${proj.contractValueGST ? ` · Value: <strong style="color:#333F48">${formatCurrency(proj.contractValueGST)} inc GST (${formatCurrency(proj.contractValueGST/1.1)} ex GST)</strong>` : ""}</div>` : ""}
+              ${!proj.preliminaryDate && !proj.contractDate ? `<div style="color:#9CA3AF;font-style:italic">No signed milestones recorded. Use Sales Meeting Notes to record agreements.</div>` : ""}
+            </div>
+          </div>
+          <div class="section-edit-footer" id="financial-footer">
+            <button class="btn-save-section" onclick="saveSection('financial')">Save</button>
+            <button class="btn-cancel-section" onclick="cancelEdit('financial')">Cancel</button>
+            <span class="section-save-msg" id="financial-save-msg"></span>
+            <span class="section-error-msg" id="financial-error-msg"></span>
+          </div>
+        </div>
+
+        <!-- S3: Claim Schedule -->
+        <div class="section-card" id="sec-claimschedule">
+          <div class="section-header">
+            <div class="section-title">Claim Schedule<span id="cs-mode-badge" style="margin-left:10px"></span></div>
+
+          </div>
+
+          <div class="section-body" id="cs-body">
+            <div style="color:#6B7280;font-size:13px">Loading claim schedule…</div>
+          </div>
+        </div>
+
+        <!-- S4: Milestone Dates -->
+        <div class="section-card" id="sec-dates">
+          <div class="section-header">
+            <div class="section-title">Milestone Dates</div>
+            ${(currentUserRole==="director"||currentUserRole==="supervisor"||currentUserRole==="sales") ? `<button class="btn-edit-section" onclick="startEdit('dates')">Edit</button>` : ""}
+          </div>
+          <div class="section-body">
+            <div class="display-grid" id="dates-display">
+              ${[["Consult Date",proj.consultDate],["Concept Date",proj.conceptDate],["Proposal Date",proj.proposalDate],
+                 ["Preliminary Target",proj.preliminaryTargetDate],["Preliminary Signed",proj.preliminaryDate],
+                 ["Contract Date",proj.contractDate],["Commence Date",proj.commenceDate],
+                 ["Forecasted Completion",proj.forecastedCompletionDate],["Actual Completion",proj.actualCompletionDate]]
+                .map(([lbl,val]) => `<div class="display-item"><div class="display-label">${lbl}</div><div class="display-value">${formatDate(val)}${val?daysChip(val):""}</div></div>`).join("")}
+            </div>
+            <div id="dates-edit" style="display:none;margin-top:14px">
+              <div class="edit-grid">
+                ${[["Consult Date","ef-consultDate",proj.consultDate,true,false],
+                   ["Concept Date","ef-conceptDate",proj.conceptDate,true,false],
+                   ["Proposal Date","ef-proposalDate",proj.proposalDate,true,false],
+                   ["Preliminary Target","ef-preliminaryTargetDate",proj.preliminaryTargetDate,true,false],
+                   ["Contract Date","ef-contractDate",proj.contractDate,false,true],
+                   ["Commence Date","ef-commenceDate",proj.commenceDate,false,true],
+                   ["Forecasted Completion","ef-forecastedCompletionDate",proj.forecastedCompletionDate,false,true],
+                   ["Actual Completion","ef-actualCompletionDate",proj.actualCompletionDate,false,true]]
+                  .map(([lbl,id,val,salesOk,supOk]) => {
+                    const editable = currentUserRole==="director"||(currentUserRole==="sales"&&salesOk)||(currentUserRole==="supervisor"&&supOk);
+                    return `<div class="edit-group"><label>${lbl}</label><input type="date" id="${id}" value="${val||""}" ${editable?"":"disabled"} /></div>`;
+                  }).join("")}
+              </div>
+            </div>
+          </div>
+          <div class="section-edit-footer" id="dates-footer">
+            <button class="btn-save-section" onclick="saveSection('dates')">Save</button>
+            <button class="btn-cancel-section" onclick="cancelEdit('dates')">Cancel</button>
+            <span class="section-save-msg" id="dates-save-msg"></span>
+            <span class="section-error-msg" id="dates-error-msg"></span>
+          </div>
+        </div>
+
+        <!-- S5: Construction Stage -->
+        <div class="section-card" id="sec-stage">
+          <div class="section-header">
+            <div class="section-title">Construction Stage</div>
+            ${(currentUserRole==="director"||currentUserRole==="supervisor") ? `<button class="btn-edit-section" onclick="startEdit('stage')">Edit</button>` : ""}
+          </div>
+          <div class="section-body">
+            <div class="display-grid" id="stage-display">
+              <div class="display-item"><div class="display-label">Current Stage</div><div class="display-value">${fmt(proj.currentStage)}</div></div>
+              <div class="display-item"><div class="display-label">Next Stage</div><div class="display-value">${fmt(proj.nextStage)}</div></div>
+              <div class="display-item"><div class="display-label">Next Stage Date</div><div class="display-value">${formatDate(proj.nextStageDate)}${proj.nextStageDate?daysChip(proj.nextStageDate):""}</div></div>
+            </div>
+            <div id="stage-edit" style="display:none;margin-top:14px">
+              <div class="edit-grid">
+                <div class="edit-group"><label>Current Stage</label><div class="select-wrap"><select id="ef-currentStage" onchange="autoNextStage()">${stageOptions(proj.currentStage)}</select></div></div>
+                <div class="edit-group"><label>Next Stage</label><div class="select-wrap"><select id="ef-nextStage">${stageOptions(proj.nextStage)}</select></div></div>
+                <div class="edit-group"><label>Next Stage Date</label><input type="date" id="ef-nextStageDate" value="${proj.nextStageDate||""}" /></div>
+              </div>
+            </div>
+          </div>
+          <div class="section-edit-footer" id="stage-footer">
+            <button class="btn-save-section" onclick="saveSection('stage')">Save</button>
+            <button class="btn-cancel-section" onclick="cancelEdit('stage')">Cancel</button>
+            <span class="section-save-msg" id="stage-save-msg"></span>
+            <span class="section-error-msg" id="stage-error-msg"></span>
+          </div>
+        </div>
+
+        <!-- S6: Carpenter Costs -->
+        <div class="section-card" id="sec-carpenter">
+          <div class="section-header">
+            <div class="section-title">Carpenter Costs</div>
+            ${(currentUserRole==="director"||currentUserRole==="supervisor") ? `<button class="btn-edit-section" onclick="startEdit('carpenter')">Edit</button>` : ""}
+          </div>
+          <div class="section-body">
+            <div class="display-grid cols-3" id="carpenter-display">
+              <div class="display-item"><div class="display-label">Budget ex GST</div><div class="display-value">${formatCurrency(proj.carpenterBudget)}</div></div>
+              <div class="display-item"><div class="display-label">Forecast ex GST</div><div class="display-value">${formatCurrency(proj.carpenterForecast)}</div></div>
+              <div class="display-item"><div class="display-label">Overrun</div><div class="display-value ${carpOverrun>0?"overrun-positive":carpOverrun<0?"overrun-negative":""}">${(proj.carpenterBudget||proj.carpenterForecast)?formatCurrency(carpOverrun):"—"}${carpOverrunPct!=null&&(proj.carpenterBudget||proj.carpenterForecast)?` <small>(${carpOverrunPct}%)</small>`:""}</div></div>
+            </div>
+            <div id="carpenter-edit" style="display:none;margin-top:14px">
+              <div class="edit-grid">
+                <div class="edit-group"><label>Budget ex GST</label><div class="currency-wrap"><span class="currency-symbol">$</span><input type="number" id="ef-carpenterBudget" value="${proj.carpenterBudget||""}" min="0" step="100" /></div></div>
+                <div class="edit-group"><label>Forecast ex GST</label><div class="currency-wrap"><span class="currency-symbol">$</span><input type="number" id="ef-carpenterForecast" value="${proj.carpenterForecast||""}" min="0" step="100" /></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="section-edit-footer" id="carpenter-footer">
+            <button class="btn-save-section" onclick="saveSection('carpenter')">Save</button>
+            <button class="btn-cancel-section" onclick="cancelEdit('carpenter')">Cancel</button>
+            <span class="section-save-msg" id="carpenter-save-msg"></span>
+            <span class="section-error-msg" id="carpenter-error-msg"></span>
+          </div>
+        </div>
+
+        <!-- S7: Variations (read-only register) -->
+        <div class="section-card" id="sec-variations">
+          <div class="section-header">
+            <div class="section-title">Variations</div>
+          </div>
+          <div class="section-body">
+            <p style="font-size:12px;color:#6B7280;margin-bottom:12px;font-style:italic">
+              Variations are managed in Construction Meeting Notes.
+            </p>
+            <div id="var-list"><div style="color:#6B7280;font-size:13px">Loading…</div></div>
+          </div>
+        </div>
+
+        <!-- S8: Meeting Notes -->
+        <div class="section-card" id="sec-meetingnotes">
+          <div class="section-header">
+            <div class="section-title">Meeting Notes</div>
+            <div style="display:flex;gap:8px">
+              <a class="btn-edit-section" href="sales-meeting-notes.html" style="text-decoration:none">Sales Mtg</a>
+              <a class="btn-edit-section" href="meeting-notes.html" style="text-decoration:none">Construction Mtg</a>
+            </div>
+          </div>
+          <div class="section-body">
+            <div id="mn-list"><div style="color:#6B7280;font-size:13px">Loading…</div></div>
+          </div>
+        </div>
+      `;
+
+
+    }
+
+    // ── Edit helpers ──────────────────────────────────────────────────────────
+    window.startEdit = function(section) {
+      if (activeEditSection && activeEditSection !== section) cancelEdit(activeEditSection);
+      activeEditSection = section;
+      document.getElementById(section+"-display")?.style.setProperty("display","none");
+      document.getElementById(section+"-edit")?.style.setProperty("display","block");
+      document.getElementById(section+"-footer")?.classList.add("show");
+      document.getElementById(section+"-save-msg")?.classList.remove("show");
+      document.getElementById(section+"-error-msg")?.classList.remove("show");
+    };
+    window.cancelEdit = function(section) {
+      document.getElementById(section+"-display")?.style.setProperty("display","");
+      document.getElementById(section+"-edit")?.style.setProperty("display","none");
+      document.getElementById(section+"-footer")?.classList.remove("show");
+      if (activeEditSection === section) activeEditSection = null;
+    };
+
+    window.autoNextStage = function() {
+      const cur = document.getElementById("ef-currentStage")?.value;
+      const nxt = document.getElementById("ef-nextStage");
+      if (!cur || !nxt) return;
+      const idx = STAGES.indexOf(cur);
+      if (idx >= 0 && idx < STAGES.length-1) nxt.value = STAGES[idx+1];
+    };
+
+    window.updateLhBadge = function() {
+      const pct   = parseInt(document.getElementById("ef-likelihoodPct")?.value)||0;
+      const level = getLikelihoodLevel(pct);
+      const badge = document.getElementById("ef-lh-badge");
+      if (!badge) return;
+      badge.textContent = level;
+      badge.className   = "lh-badge " + {High:"lh-high",Medium:"lh-medium",Low:"lh-low"}[level];
+    };
+
+    // ── saveSection ───────────────────────────────────────────────────────────
+    window.saveSection = async function(section) {
+      const saveBtn  = document.querySelector(`#sec-${section === "overview" ? "overview" : section === "financial" ? "financial" : section} .btn-save-section`);
+      const saveMsg  = document.getElementById(section+"-save-msg");
+      const errorEl  = document.getElementById(section+"-error-msg");
+      if (!saveBtn) return;
+      saveBtn.disabled = true; saveBtn.innerHTML = '<span class="spinner-sm"></span> Saving…';
+      if (saveMsg)  { saveMsg.textContent="";  saveMsg.classList.remove("show"); }
+      if (errorEl)  { errorEl.textContent="";  errorEl.classList.remove("show"); }
+
+      const gv  = id => { const e=document.getElementById(id); return e?e.value:undefined; };
+      const num = id => { const v=gv(id); return (v!==undefined&&v!=="") ? parseFloat(v) : null; };
+
+      try {
+        let updates = { updatedAt: serverTimestamp() };
+        if (section==="overview") {
+          updates.projectCode               = gv("ef-projectCode")?.trim()||"";
+          updates.projectAddress            = gv("ef-projectAddress")?.trim()||"";
+          updates.projectType               = gv("ef-projectType")||"";
+          updates.lotDP                     = gv("ef-lotDP")?.trim()||"";
+          updates.councilArea               = gv("ef-councilArea")?.trim()||"";
+          updates.storeys                   = num("ef-storeys");
+          updates.bedrooms                  = num("ef-bedrooms");
+          updates.bathrooms                 = num("ef-bathrooms");
+          updates.garages                   = num("ef-garages");
+          updates.estimatedBudget           = num("ef-estimatedBudget");
+          updates.salesPersonId             = gv("ef-salesPersonId")||"";
+          updates.supervisorId              = gv("ef-supervisorId")||"";
+          updates.likelihoodPct             = (parseInt(gv("ef-likelihoodPct"))||0)/100;
+          updates.likelihoodLevel           = getLikelihoodLevel(parseInt(gv("ef-likelihoodPct"))||0);
+          updates.expectedCommencementMonth = gv("ef-expectedCommencementMonth")||"";
+          updates.pipelineNotes             = gv("ef-pipelineNotes")?.trim()||"";
+        }
+        if (section==="financial") {
+          updates.contractValueGST   = num("ef-contractValueGST");
+          updates.preliminaryFeeGST  = num("ef-preliminaryFeeGST");
+          updates.targetMarginPct    = num("ef-targetMarginPct");
+        }
+        if (section==="dates") {
+          updates.consultDate              = gv("ef-consultDate")||"";
+          updates.conceptDate              = gv("ef-conceptDate")||"";
+          updates.proposalDate             = gv("ef-proposalDate")||"";
+          updates.preliminaryTargetDate    = gv("ef-preliminaryTargetDate")||"";
+          updates.contractDate             = gv("ef-contractDate")||"";
+          updates.commenceDate             = gv("ef-commenceDate")||"";
+          updates.forecastedCompletionDate = gv("ef-forecastedCompletionDate")||"";
+          updates.actualCompletionDate     = gv("ef-actualCompletionDate")||"";
+        }
+        if (section==="stage") {
+          updates.currentStage  = gv("ef-currentStage")||"";
+          updates.nextStage     = gv("ef-nextStage")||"";
+          updates.nextStageDate = gv("ef-nextStageDate")||"";
+        }
+        if (section==="carpenter") {
+          updates.carpenterBudget   = num("ef-carpenterBudget");
+          updates.carpenterForecast = num("ef-carpenterForecast");
+        }
+
+        await updateDoc(doc(db,"projects",projectId), updates);
+        const refreshed = await getDoc(doc(db,"projects",projectId));
+        if (refreshed.exists()) proj = { id:projectId, ...refreshed.data() };
+
+        const now = new Date();
+        if (saveMsg) { saveMsg.textContent="Saved — "+now.toLocaleTimeString("en-AU",{hour:"2-digit",minute:"2-digit"}); saveMsg.classList.add("show"); }
+        cancelEdit(section);
+        renderPage();
+      } catch (err) {
+        if (errorEl) { errorEl.textContent="Save failed: "+err.message; errorEl.classList.add("show"); }
+      } finally {
+        saveBtn.disabled = false; saveBtn.innerHTML = "Save";
+      }
+    };
+
+    // ── Phase transitions ─────────────────────────────────────────────────────
+    function updatePhaseBadge(phase) {
+      headerPhase.innerHTML = `<span class="phase-badge ${phaseBadgeClass(phase)}">${phase}</span>`;
+      proj.projectPhase = phase;
+    }
+
+    window.toggleOverrideDialog = function() {
+      document.getElementById("override-dialog")?.classList.toggle("open");
+    };
+    window.overridePhase = async function(newPhase) {
+      if (!confirm(`Set project phase to "${newPhase}"?`)) return;
+      try {
+        await updateDoc(doc(db,"projects",projectId),{projectPhase:newPhase,updatedAt:serverTimestamp()});
+        proj.projectPhase = newPhase;
+        updatePhaseBadge(newPhase);
+        const snap = await getDoc(doc(db,"projects",projectId));
+        if (snap.exists()) proj = {id:projectId,...snap.data()};
+        renderPage();
+      } catch (err) { alert("Failed: "+err.message); }
+    };
+
+
+
+
+
+
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // CLAIM SCHEDULE — read-only view
+    // ══════════════════════════════════════════════════════════════════════════
+    function csFmtCur(n) { if(!n&&n!==0)return"—"; return"$"+Number(n).toLocaleString("en-AU",{maximumFractionDigits:0}); }
+    function csDaysDiff(d1,d2) { if(!d1||!d2)return null; return Math.round((new Date(d2+"T00:00:00")-new Date(d1+"T00:00:00"))/86400000); }
+
+    async function initClaimSchedule() {
+      const bodyEl   = document.getElementById("cs-body");
+      const modeBadge= document.getElementById("cs-mode-badge");
+      if (bodyEl) bodyEl.innerHTML = '<div style="color:#6B7280;font-size:13px">Loading…</div>';
+      try {
+        const snap = await getDocs(query(collection(db,"projects",projectId,"claimschedule"),orderBy("claimNumber","asc")));
+        if (snap.empty) {
+          if (modeBadge) modeBadge.innerHTML = "";
+          if (bodyEl) bodyEl.innerHTML = '<div style="color:#6B7280;font-size:13px;font-style:italic">No claim schedule set up. Set it up in the Sales or Construction Meeting Notes.</div>';
+          return;
+        }
+        const docs = snap.docs.map(d => ({id:d.id,...d.data()}));
+        const hasContracted = docs.some(d => d.mode === "contracted");
+        const rows = hasContracted ? docs.filter(d => d.mode === "contracted") : docs;
+
+        if (modeBadge) modeBadge.innerHTML = hasContracted
+          ? '<span class="cs-mode-badge cs-mode-contracted">Contracted</span>'
+          : '<span class="cs-mode-badge cs-mode-indicative">Indicative</span>';
+
+        // Build read-only table
+        const statusClsMap = {Scheduled:"status-scheduled",Issued:"status-issued",Received:"status-received",Overdue:"status-overdue"};
+        let rowsHtml = "";
+        if (hasContracted) {
+          let totalAmt = 0, totalRec = 0;
+          rows.forEach(r => { totalAmt += r.contractedAmountGST||0; totalRec += r.actualAmountReceivedGST||0; });
+          rowsHtml = rows.map(r => {
+            const varHtml = r.plannedIssueDate && r.actualIssueDate
+              ? (() => { const d=csDaysDiff(r.plannedIssueDate,r.actualIssueDate); return d>0?`<span class="cs-variance-pos">+${d}d</span>`:d<0?`<span class="cs-variance-neg">${d}d</span>`:'<span style="color:#6B7280;font-size:11px">On time</span>'; })()
+              : "";
+            const statusCls = statusClsMap[r.status]||"";
+            return `<tr>
+              <td style="color:#6B7280;font-size:12px;text-align:center;width:30px">${r.claimNumber}</td>
+              <td style="font-weight:600">${r.claimName||"—"}</td>
+              <td>${csFmtCur(r.contractedAmountGST)}</td>
+              <td style="color:#6B7280">${r.plannedIssueDate||"—"}</td>
+              <td style="color:#6B7280">${r.actualIssueDate||"—"}</td>
+              <td><span class="${statusCls}" style="font-weight:500">${r.status||"Scheduled"}</span></td>
+              <td>${varHtml}</td>
+            </tr>`;
+          }).join("") +
+          `<tr style="background:#F5F4F2;font-weight:600">
+            <td colspan="2" style="padding:8px 10px;font-size:12px;color:#333F48">Total</td>
+            <td style="padding:8px 10px">${csFmtCur(totalAmt)}</td>
+            <td colspan="2"></td>
+            <td style="padding:8px 10px;color:#2D6A4F">${csFmtCur(totalRec)} received</td>
+            <td style="padding:8px 10px;color:${totalAmt-totalRec>0?"#9B2335":"#2D6A4F"}">${csFmtCur(totalAmt-totalRec)} outstanding</td>
+          </tr>`;
+          if (bodyEl) bodyEl.innerHTML = `<div class="cs-table-wrap"><table class="cs-table">
+            <thead><tr><th>#</th><th>Claim Name</th><th>Amount inc GST</th><th>Planned Issue</th><th>Actual Issue</th><th>Status</th><th>Variance</th></tr></thead>
+            <tbody>${rowsHtml}</tbody></table></div>`;
+        } else {
+          // Indicative
+          const budget = proj ? (proj.estimatedBudget||0) : 0;
+          let totalPct = 0;
+          rows.forEach(r => totalPct += (r.percentage||0)*100);
+          rowsHtml = rows.map(r => {
+            const pctVal = Math.round((r.percentage||0)*10000)/100;
+            const estAmt = budget*(r.percentage||0);
+            return `<tr>
+              <td style="color:#6B7280;font-size:12px;text-align:center;width:30px">${r.claimNumber}</td>
+              <td style="font-weight:600">${r.claimName||"—"}</td>
+              <td>${pctVal}%</td>
+              <td style="color:#B7791F;font-weight:500">${estAmt>0?csFmtCur(estAmt):"—"}</td>
+              <td style="color:#6B7280">${r.estimatedDate||"—"}</td>
+            </tr>`;
+          }).join("") +
+          `<tr style="background:#F5F4F2;font-weight:600">
+            <td colspan="2" style="padding:8px 10px;font-size:12px;color:#333F48">Total</td>
+            <td style="padding:8px 10px;color:${Math.abs(totalPct-100)<0.01?"#2D6A4F":"#9B2335"}">${totalPct.toFixed(1)}%</td>
+            <td colspan="2"></td>
+          </tr>`;
+          if (bodyEl) bodyEl.innerHTML = `<div class="cs-table-wrap"><table class="cs-table">
+            <thead><tr><th>#</th><th>Claim Name</th><th>% of Budget</th><th>Estimated Amount</th><th>Estimated Date</th></tr></thead>
+            <tbody>${rowsHtml}</tbody></table></div>`;
+        }
+      } catch (err) {
+        if (bodyEl) bodyEl.innerHTML = `<div style="color:#9B2335;font-size:13px">Failed: ${err.message}</div>`;
+      }
+    }
+    // ══════════════════════════════════════════════════════════════════════════
+    // VARIATIONS
+    // ══════════════════════════════════════════════════════════════════════════
+    let variations = [];
+
+    async function loadVariations() {
+      const el=document.getElementById("var-list"); if(!el)return;
+      try {
+        const snap=await getDocs(query(collection(db,"projects",projectId,"variations"),orderBy("createdAt","asc")));
+        variations=snap.docs.map(d=>({id:d.id,...d.data()}));
+        renderVariations();
+      } catch(err) { if(el) el.innerHTML=`<div style="color:#9B2335;font-size:13px">Failed: ${err.message}</div>`; }
+    }
+
+    function varStatusBadge(status) {
+      const cls={Pending:"var-pending",Approved:"var-approved",Rejected:"var-rejected",Discussing:"var-discussing",Resolved:"var-resolved"}[status]||"var-discussing";
+      return `<span class="var-status-badge ${cls}">${status||"Discussing"}</span>`;
+    }
+    function fmtTimestamp(ts) {
+      if(!ts)return"";
+      try { const d=ts.toDate?ts.toDate():new Date(ts); return d.toLocaleDateString("en-AU"); } catch(e){return"";}
+    }
+
+    function renderVariations() {
+      const el=document.getElementById("var-list"); if(!el)return;
+      if (!variations.length) { el.innerHTML='<div class="var-empty">No variations recorded.</div>'; return; }
+      el.innerHTML=`<table class="var-table"><thead><tr><th>Date</th><th>Description</th><th>Status</th></tr></thead><tbody>`+
+        variations.map(v=>`
+          <tr>
+            <td style="white-space:nowrap;color:#6B7280;font-size:12px">${fmtTimestamp(v.createdAt)}</td>
+            <td>${v.description||"—"}</td>
+            <td>${varStatusBadge(v.status)}</td>
+          </tr>`).join("")+
+        `</tbody></table>`;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // MEETING NOTES
+    // ══════════════════════════════════════════════════════════════════════════
+    async function loadMeetingNotes() {
+      const el=document.getElementById("mn-list"); if(!el)return;
+      try {
+        const snap=await getDocs(query(collection(db,"projects",projectId,"meetingnotes"),orderBy("meetingDate","desc"),limit(5)));
+        if (snap.empty) { el.innerHTML='<div style="color:#6B7280;font-size:13px">No meeting notes recorded.</div>'; return; }
+        el.innerHTML=snap.docs.map(d=>{
+          const n=d.data();
+          const phaseLabel=n.phase==="prelim-construction"?"Construction Prelim":n.phase==="sales"?"Sales":"Construction";
+          const preview=(n.salesUpdate||n.supervisorUpdate||n.prelimUpdate||"").substring(0,120);
+          const mtgPage=n.phase==="sales"?"sales-meeting-notes.html":"meeting-notes.html";
+          return `<div class="mn-item">
+            <div>
+              <div><span class="mn-date">${formatDate(n.meetingDate)}</span><span class="mn-phase">${phaseLabel}</span></div>
+              ${preview?`<div class="mn-preview">${preview}${preview.length===120?"…":""}</div>`:""}
+            </div>
+            <a class="btn-mn-link" href="${mtgPage}">View ↗</a>
+          </div>`;
+        }).join("");
+      } catch(err) { if(el) el.innerHTML=`<div style="color:#9B2335;font-size:13px">Failed: ${err.message}</div>`; }
+    }
+
+    // ── initNav ───────────────────────────────────────────────────────────────
+    initNav({
+      pageId:       "project-detail",
+      allowedRoles: [],
+      onReady: async (user, role) => {
+        currentUserRole = role;
+        await Promise.all([loadStaff(), loadSettings()]);
+        await loadProject();
+      }
+    });
+  </script>
+</body>
+</html>

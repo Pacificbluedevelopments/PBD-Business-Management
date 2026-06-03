@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gantt Board — Pacific Blue</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Filter bar ── */
+    .gantt-filters {
+      display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;
+      background:#fff;border:1px solid #E5E3E0;border-radius:8px;
+      padding:14px 18px;margin-bottom:20px;
+    }
+    .gantt-filters .fg { display:flex;flex-direction:column;gap:4px; }
+    .gantt-filters .fg label {
+      font-size:10px;font-weight:600;color:#6B7280;
+      text-transform:uppercase;letter-spacing:0.5px;
+    }
+    .gantt-filters select {
+      font-family:'Poppins',sans-serif;font-size:13px;color:#333F48;
+      border:1px solid #E5E3E0;border-radius:6px;padding:6px 10px;
+      appearance:none;background:#fff;min-width:140px;
+    }
+    .gantt-filters select:focus { outline:none;border-color:#333F48; }
+    .toggle-check {
+      display:flex;align-items:center;gap:6px;font-size:13px;color:#333F48;padding-top:18px;
+    }
+    .toggle-check input[type=checkbox] { width:16px;height:16px;cursor:pointer; }
+    .select-wrap-sm { position:relative;display:inline-block; }
+    .select-wrap-sm::after {
+      content:"▾";position:absolute;right:8px;top:50%;
+      transform:translateY(-50%);font-size:10px;color:#6B7280;pointer-events:none;
+    }
+
+    /* ── Gantt outer ── */
+    .gantt-outer {
+      background:#fff;border:1px solid #E5E3E0;border-radius:8px;overflow:hidden;
+    }
+    .gantt-scroll-wrap { overflow-x:auto;overflow-y:visible; }
+
+    /* ── Layout: sticky left panel + scrolling right panel ── */
+    .gantt-table {
+      display:flex;
+      /* min-width set inline after calc */
+    }
+
+    /* ── Left panel (sticky) ── */
+    .gantt-left {
+      width:300px;flex-shrink:0;border-right:1px solid #E5E3E0;
+      position:sticky;left:0;z-index:20;background:#fff;
+    }
+
+    /* Header row — left side, matches height of TWO header rows on the right (28+28=56px) */
+    .gantt-left-header {
+      height:70px;padding:0 16px;display:flex;align-items:center;
+      background:#333F48;border-bottom:2px solid #E5E3E0;
+    }
+    .gantt-left-header span {
+      font-size:11px;font-weight:600;color:rgba(255,255,255,0.75);
+      text-transform:uppercase;letter-spacing:0.5px;
+    }
+
+    /* Project rows — left */
+    .gantt-row-left {
+      padding:9px 14px;border-bottom:1px solid #E5E3E0;
+      height:64px;overflow:hidden;display:flex;flex-direction:column;
+      justify-content:center;gap:3px;background:#fff;
+      width:100%;box-sizing:border-box;
+    }
+    .gantt-row-left:last-child { border-bottom:none; }
+    .gantt-proj-code {
+      font-size:13px;font-weight:600;color:#333F48;line-height:1.2;
+      display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;
+    }
+    .gantt-proj-addr {
+      font-size:12px;color:#6B7280;
+      display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;
+    }
+    .gantt-proj-meta { display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden;min-width:0;width:100%; }
+    .gantt-proj-sup  { font-size:12px;color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0; }
+
+    /* Status / phase dots */
+    .phase-dot-prelim { display:inline-block;width:7px;height:7px;border-radius:50%;background:#B7791F;flex-shrink:0; }
+    .phase-dot-constr { display:inline-block;width:7px;height:7px;border-radius:50%;background:#2D6A4F;flex-shrink:0; }
+    .status-dot       { display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+    .status-green { background:#2D6A4F; }
+    .status-amber { background:#B7791F; }
+    .status-red   { background:#9B2335; }
+
+    /* Group header — left */
+    .gantt-group-left {
+      padding:7px 14px;background:#F5F4F2;border-bottom:1px solid #E5E3E0;
+      font-size:11px;font-weight:600;color:#333F48;text-transform:uppercase;
+      letter-spacing:0.5px;height:34px;display:flex;align-items:center;
+    }
+
+    /* ── Right timeline panel ── */
+    .gantt-right { flex:1;min-width:0; }
+
+    /*
+     * HEADER STRATEGY — week-column grid
+     * ─────────────────────────────────
+     * WEEKS array is built in JS as the single source of truth.
+     * Every week column is exactly WEEK_PX wide.
+     *
+     * Month header: one absolutely-positioned div per month, spanning from
+     *   the left edge of the first week in that month to the left edge of
+     *   the first week in the next month.
+     *
+     * Week header: one div per week, each exactly WEEK_PX wide.
+     *
+     * Grid lines: one line per week, at weekIndex × WEEK_PX.
+     * Today line: at todayWeekIndex × WEEK_PX + dayOffsetWithinWeek × DAY_PX.
+     *
+     * All three share the same coordinate space — perfect alignment guaranteed.
+     */
+
+    /* Month header row (28px tall) */
+    .gantt-months-row {
+      height:28px;position:relative;
+      background:#333F48;
+      /* width set inline */
+    }
+    .gantt-month-label {
+      position:absolute;top:0;bottom:0;
+      display:flex;align-items:center;justify-content:center;
+      font-family:'Poppins',sans-serif;
+      font-size:11px;font-weight:600;color:rgba(255,255,255,0.9);
+      letter-spacing:0.3px;overflow:hidden;white-space:nowrap;
+      border-right:1px solid rgba(255,255,255,0.15);
+      box-sizing:border-box;
+    }
+
+    /* Week header row (28px tall) */
+    .gantt-weeks-row {
+      height:42px;display:flex;position:relative;
+      background:#F5F4F2;border-bottom:2px solid #E5E3E0;
+    }
+    .gantt-week-cell {
+      display:flex;align-items:flex-end;justify-content:center;
+      padding-bottom:6px;
+      font-family:'Poppins',sans-serif;font-size:10px;color:#9CA3AF;
+      border-right:1px solid #E5E3E0;flex-shrink:0;
+      /* width set inline = WEEK_PX */
+    }
+    /* Current week cell highlight */
+    .gantt-week-cell.current-week {
+      background:#E8E6E2;color:#333F48;font-weight:600;
+    }
+
+    /* Timeline rows — right */
+    .gantt-row-right {
+      position:relative;border-bottom:1px solid #E5E3E0;overflow:visible;
+      /* width and height set inline */
+    }
+    .gantt-row-right:last-child { border-bottom:none; }
+
+    /* Group header — right */
+    .gantt-group-right {
+      background:#F5F4F2;border-bottom:1px solid #E5E3E0;
+      height:34px;
+    }
+
+    /* Grid lines — absolutely positioned inside each row */
+    .g-line {
+      position:absolute;top:0;bottom:0;width:1px;
+      background:#F0EEEB;pointer-events:none;
+    }
+    .g-line.month { background:#D8D5D0; }
+
+    /* Today line */
+    .g-today {
+      position:absolute;top:0;bottom:0;width:2px;
+      background:#9B2335;z-index:6;pointer-events:none;
+    }
+    /* Today label only in the week header — not repeated in every row */
+    .gantt-today-marker {
+      position:absolute;top:0;bottom:0;width:2px;
+      background:#9B2335;z-index:6;
+    }
+    .gantt-today-marker::after {
+      content:'TODAY';
+      position:absolute;top:50%;left:4px;transform:translateY(-50%);
+      font-family:'Poppins',sans-serif;font-size:8px;font-weight:700;
+      color:#9B2335;white-space:nowrap;letter-spacing:0.5px;
+    }
+
+    /* Claim bars */
+    .claim-bar {
+      position:absolute;border-radius:3px;cursor:pointer;
+      transition:opacity 0.15s;z-index:3;
+      display:flex;align-items:center;overflow:hidden;
+    }
+    .claim-bar:hover { opacity:0.78; }
+    .claim-bar-planned  { background:#B7B09C;height:10px;top:20px; }
+    .claim-bar-act-ok   { background:#2D6A4F;height:12px;top:34px; }
+    .claim-bar-act-late { background:#9B2335;height:12px;top:34px; }
+    .claim-bar-label {
+      font-size:9px;font-weight:600;color:#fff;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      padding:0 4px;line-height:1;
+    }
+
+    /* Popup */
+    .claim-popup {
+      position:fixed;z-index:300;
+      background:#fff;border:1px solid #E5E3E0;border-radius:8px;
+      box-shadow:0 8px 24px rgba(0,0,0,0.13);
+      padding:14px 16px;min-width:240px;max-width:320px;
+      display:none;
+    }
+    .claim-popup.open { display:block; }
+    .claim-popup h4 { font-size:13px;font-weight:600;color:#333F48;margin-bottom:8px; }
+    .cp-row {
+      display:flex;justify-content:space-between;
+      font-size:12px;color:#6B7280;margin-bottom:4px;
+    }
+    .cp-row strong { color:#333F48; }
+    .cp-input-row { display:flex;align-items:flex-end;gap:8px;margin-top:10px;flex-wrap:wrap; }
+    .cp-input-row label {
+      display:block;font-size:10px;font-weight:600;color:#6B7280;
+      text-transform:uppercase;letter-spacing:0.3px;margin-bottom:3px;
+    }
+    .cp-date-input {
+      font-family:'Poppins',sans-serif;font-size:12px;color:#333F48;
+      border:1px solid #E5E3E0;border-radius:6px;padding:5px 8px;
+    }
+    .cp-date-input:focus { outline:none;border-color:#333F48; }
+    .btn-cp-save {
+      font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;
+      padding:6px 14px;background:#333F48;border:none;border-radius:6px;
+      color:#fff;cursor:pointer;
+    }
+    .btn-cp-cancel {
+      background:none;border:none;font-family:'Poppins',sans-serif;
+      font-size:12px;color:#6B7280;cursor:pointer;text-decoration:underline;
+    }
+    .cp-save-ind { font-size:11px;color:#2D6A4F;display:none; }
+    .cp-save-ind.show { display:inline; }
+    .cp-close {
+      position:absolute;top:8px;right:10px;background:none;border:none;
+      font-size:16px;color:#9CA3AF;cursor:pointer;line-height:1;
+    }
+
+    /* Empty / loading */
+    .gantt-empty { padding:60px 24px;text-align:center;color:#6B7280;font-size:14px; }
+
+    @media (max-width:768px) {
+      .gantt-left { width:200px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1 class="page-title">Gantt Board</h1>
+        <p class="page-subtitle">Project timeline — schedule vs actuals</p>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="gantt-filters">
+        <div class="fg">
+          <label>Supervisor</label>
+          <div class="select-wrap-sm">
+            <select id="filter-sup" onchange="applyFilters()">
+              <option value="">All Supervisors</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Phase</label>
+          <div class="select-wrap-sm">
+            <select id="filter-phase" onchange="applyFilters()">
+              <option value="">All Phases</option>
+              <option value="Preliminaries">Preliminaries</option>
+              <option value="Construction">Construction</option>
+            </select>
+          </div>
+        </div>
+        <label class="toggle-check">
+          <input type="checkbox" id="filter-completed" onchange="applyFilters()" />
+          Show Completed
+        </label>
+      </div>
+
+      <!-- Gantt board -->
+      <div class="gantt-outer" id="gantt-outer">
+        <div style="padding:40px;text-align:center;color:#6B7280">
+          <span style="display:inline-block;width:16px;height:16px;border:2px solid #E5E3E0;
+            border-top-color:#333F48;border-radius:50%;animation:spin 0.7s linear infinite;
+            vertical-align:middle;margin-right:8px;"></span>
+          Loading projects…
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Claim popup -->
+  <div class="claim-popup" id="claim-popup">
+    <button class="cp-close" onclick="closePopup()">✕</button>
+    <h4 id="cp-title">Claim</h4>
+    <div id="cp-details"></div>
+    <div class="cp-input-row">
+      <div>
+        <label>Planned Issue Date</label>
+        <input type="date" class="cp-date-input" id="cp-date" />
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;padding-top:18px">
+        <button class="btn-cp-save" onclick="savePopupDate()">Save</button>
+        <button class="btn-cp-cancel" onclick="closePopup()">Cancel</button>
+        <span class="cp-save-ind" id="cp-save-ind">✓ Saved</span>
+      </div>
+    </div>
+  </div>
+
+  <button id="sidebar-hamburger" aria-label="Open menu">☰</button>
+  <div id="sidebar-overlay"></div>
+
+  <script type="module">
+    import { initNav } from "./nav.js";
+    import { db }      from "./firebase-config.js";
+    import {
+      collection, getDocs, doc, updateDoc, query, orderBy, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── App state ─────────────────────────────────────────────────────────────
+    let allProjects  = [];
+    let staffMap     = {};
+    let claimsByProj = {};
+    let visibleProjs = [];
+    let popupProjId  = null;
+    let popupClaimId = null;
+
+    // ══════════════════════════════════════════════════════════════════════
+    // TIMELINE COORDINATE SYSTEM — WEEK-FIRST (single source of truth)
+    // ══════════════════════════════════════════════════════════════════════
+    //
+    // WEEKS[i] = the Monday that starts week column i.
+    // Every week column is exactly WEEK_PX pixels wide.
+    //
+    // ALL pixel positions snap to: weekIndex * WEEK_PX
+    //   — Month header left/right edges  → week-snapped
+    //   — Grid lines                     → i * WEEK_PX
+    //   — Week header cell widths        → WEEK_PX each
+    //   — Today line                     → weekIndex * WEEK_PX + dayInWeek * DAY_PX
+    //   — Claim bar positions            → same formula from ISO date
+    //
+    // Because months, weeks, grid lines, bars and the today line all use the
+    // same integer multiples of WEEK_PX, alignment is perfect by construction.
+    // ══════════════════════════════════════════════════════════════════════
+
+    const WEEK_PX = 80;           // px per week column
+    const DAY_PX  = WEEK_PX / 7; // px per calendar day within a week
+
+    const TODAY = new Date();
+    TODAY.setHours(0, 0, 0, 0);
+
+    // ── Build the WEEKS array ─────────────────────────────────────────────
+    // Start: Monday on or before the 1st of (today − 6 months).
+    // End:   last day of (today + 6 months).
+    function buildWeeks() {
+      // 1st of the month that is 6 months before today
+      const sm  = new Date(TODAY.getFullYear(), TODAY.getMonth() - 6, 1);
+      // Monday on or before sm  (getDay: 0=Sun 1=Mon … 6=Sat)
+      const dow = sm.getDay();
+      const back = (dow === 0) ? 6 : dow - 1;   // days back to reach Monday
+      const firstMon = new Date(sm);
+      firstMon.setDate(firstMon.getDate() - back);
+
+      // Last day of the month that is 6 months after today
+      const endDate = new Date(TODAY.getFullYear(), TODAY.getMonth() + 7, 0);
+
+      const weeks = [];
+      let cur = new Date(firstMon);
+      while (cur <= endDate) {
+        weeks.push(new Date(cur));
+        cur.setDate(cur.getDate() + 7);
+      }
+      return weeks;
+    }
+
+    const WEEKS       = buildWeeks();
+    const TL_START    = WEEKS[0];          // Monday of week 0
+    const TOTAL_WEEKS = WEEKS.length;
+    const TOTAL_PX    = TOTAL_WEEKS * WEEK_PX;
+
+    // ── Core coordinate function ──────────────────────────────────────────
+    // Returns pixel position of a Date, measured from TL_START.
+    // Uses exact day fractions so bars land between week boundaries correctly.
+    // Week column i occupies [i*WEEK_PX, (i+1)*WEEK_PX).
+    function pxOfDate(d) {
+      const days = (d.getTime() - TL_START.getTime()) / 86400000;
+      return days * DAY_PX;
+    }
+
+    // Week index of the week column that contains date d.
+    // Week i contains dates TL_START+i*7 through TL_START+i*7+6.
+    function weekOf(d) {
+      const days = Math.floor((d.getTime() - TL_START.getTime()) / 86400000);
+      return Math.floor(days / 7);
+    }
+
+    // Left px edge of the week column that contains date d.
+    // This is the only function used for month-boundary snapping.
+    function weekSnapPx(d) {
+      return weekOf(d) * WEEK_PX;
+    }
+
+    // Pixel position from an ISO date string, or null.
+    function pxFromISO(iso) {
+      if (!iso) return null;
+      const d = new Date(iso + "T00:00:00");
+      return isNaN(d) ? null : pxOfDate(d);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function fmtDate(iso) {
+      if (!iso) return "—";
+      const mn = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const d  = new Date(iso + "T00:00:00");
+      return `${d.getDate()} ${mn[d.getMonth()]} ${d.getFullYear()}`;
+    }
+    function fmtCurrency(val) {
+      if (!val && val !== 0) return "—";
+      return "$" + Number(val).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+    }
+    function supName(id) {
+      const s = staffMap[id];
+      return s ? `${s.firstName||""} ${s.lastName||""}`.trim() : "Unassigned";
+    }
+    function esc(s) {
+      return String(s||"")
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    // ── Load ──────────────────────────────────────────────────────────────────
+    async function loadAll() {
+      // Load staff
+      const staffSnap = await getDocs(collection(db, "staffmembers"));
+      staffSnap.forEach(d => { staffMap[d.id] = d.data(); });
+
+      // Populate supervisor filter
+      const supSel = document.getElementById("filter-sup");
+      const sups = [];
+      staffSnap.forEach(d => {
+        const s = d.data();
+        if ((s.role||"").toLowerCase() === "supervisor" && s.isActive !== false)
+          sups.push({ id: d.id, name: `${s.firstName||""} ${s.lastName||""}`.trim() });
+      });
+      sups.sort((a, b) => a.name.localeCompare(b.name));
+      sups.forEach(s => {
+        const o = document.createElement("option");
+        o.value = s.id; o.textContent = s.name;
+        supSel.appendChild(o);
+      });
+
+      // ── Phase derivation (phase is never stored — always calculated) ────────
+      // Matches the logic in all-projects.html exactly.
+      function derivePhase(p) {
+        if (p.cancelledAt)     return "Cancelled";
+        if (p.onHoldAt)        return "On Hold";
+        if (p.completedAt)     return "Completed";
+        if (p.pcClaimIssued)   return "Practical Completion";
+        if (p.contractDate)    return "Construction";
+        if (p.preliminaryDate) return "Preliminaries";
+        return "Sales";
+      }
+
+      // Load ALL non-deleted projects, then filter by derived phase in JS.
+      // Do NOT filter by a stored projectPhase field — it is not reliable.
+      const snap = await getDocs(query(collection(db, "projects"), orderBy("projectCode","asc")));
+      allProjects = [];
+      snap.forEach(d => {
+        const p     = d.data();
+        if (p.deletedAt) return;          // soft-deleted
+        const phase = derivePhase(p);
+        if (!["Preliminaries","Construction","Completed"].includes(phase)) return;
+        allProjects.push({ id: d.id, ...p, _phase: phase });
+      });
+
+      // ── DEBUG: Project load ──────────────────────────────────────────
+      console.log("[Gantt] Projects loaded:", allProjects.length, "(all non-deleted, phase derived in JS)");
+      allProjects.forEach(p => {
+        console.log("[Gantt] Project:", {
+          id:               p.id,
+          projectCode:      p.projectCode,
+          derivedPhase:     p._phase,
+          storedPhase:      p.projectPhase,
+          contractDate:     p.contractDate,
+          preliminaryDate:  p.preliminaryDate,
+          cancelledAt:      p.cancelledAt,
+          onHoldAt:         p.onHoldAt,
+          completedAt:      p.completedAt,
+          contractValueGST: p.contractValueGST,
+          supervisorId:     p.supervisorId,
+          deletedAt:        p.deletedAt
+        });
+      });
+
+      // Load claim schedules
+      await Promise.all(allProjects.map(async p => {
+        console.log("[Gantt] Fetching claim schedule for:", p.id, p.projectCode);
+        try {
+          const cs = await getDocs(
+            query(collection(db, "projects", p.id, "claimschedule"), orderBy("claimNumber","asc"))
+          );
+          console.log("[Gantt] Claims found for", p.projectCode, ":", cs.docs.length, "documents");
+          cs.docs.forEach((d, i) => {
+            console.log("[Gantt] Claim doc", i, "(", p.projectCode, "):", JSON.parse(JSON.stringify(d.data())));
+          });
+          claimsByProj[p.id] = cs.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch (e) {
+          console.error("[Gantt] Error fetching claims for", p.id, ":", e.message);
+          claimsByProj[p.id] = [];
+        }
+      }));
+
+      applyFilters();
+    }
+
+    // ── Filters ───────────────────────────────────────────────────────────────
+    window.applyFilters = function() {
+      const sup      = document.getElementById("filter-sup").value;
+      const phase    = document.getElementById("filter-phase").value;
+      const showComp = document.getElementById("filter-completed").checked;
+
+      visibleProjs = allProjects.filter(p => {
+        // Use _phase (derived at load time), not the stored projectPhase field.
+        if (!showComp && p._phase === "Completed") return false;
+        if (sup   && p.supervisorId !== sup)   return false;
+        if (phase && p._phase       !== phase) return false;
+        return true;
+      });
+
+      renderGantt();
+    };
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // RENDER
+    // ══════════════════════════════════════════════════════════════════════════
+    function renderGantt() {
+      if (visibleProjs.length === 0) {
+        document.getElementById("gantt-outer").innerHTML =
+          `<div class="gantt-empty">No projects found. Adjust filters or add Construction or Prelim projects.</div>`;
+        return;
+      }
+
+      // ── Month header spans (week-snapped) ───────────────────────────────────
+      // For each calendar month, left = weekSnapPx(1st of month),
+      //                          right = weekSnapPx(1st of next month).
+      // Both are exact multiples of WEEK_PX → perfectly aligned with week cells.
+      const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+      const monthSpans = [];
+      // Walk every calendar month that overlaps our timeline window
+      const tlEndDate = new Date(WEEKS[TOTAL_WEEKS - 1]);
+      tlEndDate.setDate(tlEndDate.getDate() + 6);  // Sunday of last week
+
+      let curMonth = new Date(TL_START.getFullYear(), TL_START.getMonth(), 1);
+      const lastMonth = new Date(tlEndDate.getFullYear(), tlEndDate.getMonth(), 1);
+      while (curMonth <= lastMonth) {
+        const yr = curMonth.getFullYear();
+        const mo = curMonth.getMonth();
+        const d1 = new Date(yr, mo, 1);
+        const d2 = new Date(yr, mo + 1, 1);  // 1st of next month
+        // Snap both boundaries to the start of whichever week column contains them
+        const leftPx  = Math.max(0,        weekSnapPx(d1));
+        const rightPx = Math.min(TOTAL_PX, weekSnapPx(d2));
+        if (rightPx > leftPx) {
+          monthSpans.push({ label: MN[mo] + " " + yr, leftPx, rightPx });
+        }
+        curMonth.setMonth(curMonth.getMonth() + 1);
+      }
+
+      // Month header HTML: absolutely positioned divs, each spanning leftPx→rightPx.
+      // Width is always a whole multiple of WEEK_PX (4×80=320 or 5×80=400).
+      const monthsHtml = monthSpans.map(s => {
+        const w = s.rightPx - s.leftPx;
+        return `<div class="gantt-month-label" style="left:${s.leftPx}px;width:${w}px">${s.label}</div>`;
+      }).join("");
+
+      // ── Week header HTML ──────────────────────────────────────────────────────
+      // One flex cell per week, all exactly WEEK_PX wide.
+      // Shows the Monday date as an ordinal (1st, 8th, 15th…). Current week highlighted.
+      function ordinal(n) {
+        const s = ["th","st","nd","rd"];
+        const v = n % 100;
+        return n + (s[(v - 20) % 10] || s[v] || s[0]);
+      }
+      const todayWeekIdx = weekOf(TODAY);
+      const weeksHtml = WEEKS.map((w, i) => {
+        const cur = (i === todayWeekIdx);
+        return `<div class="gantt-week-cell${cur ? " current-week" : ""}" `
+             + `style="width:${WEEK_PX}px" `
+             + `title="Week starting ${w.toLocaleDateString("en-AU")}">${ordinal(w.getDate())}</div>`;
+      }).join("");
+
+      // ── Today line ────────────────────────────────────────────────────────────
+      // Placed at the exact fractional-day position so it sits within the correct
+      // week column. pxOfDate uses the same DAY_PX as WEEK_PX/7, so today's px
+      // always falls inside [todayWeekIdx*WEEK_PX, (todayWeekIdx+1)*WEEK_PX).
+      const todayPx = pxOfDate(TODAY);
+
+      // ── Grid lines (shared across all row bodies) ─────────────────────────────
+      // One vertical line per week boundary at i*WEEK_PX.
+      // Month-boundary lines are darker. We mark a boundary at week i when the
+      // 1st of a new calendar month falls within that week (Mon–Sun).
+      const isMonthBoundary = new Array(TOTAL_WEEKS).fill(false);
+      WEEKS.forEach((mon, i) => {
+        const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+        // If any day Mon..Sun crosses into a new month-year, this week boundary is a month line
+        if (mon.getMonth() !== sun.getMonth() || mon.getFullYear() !== sun.getFullYear()) {
+          isMonthBoundary[i] = true;
+        }
+      });
+
+      let gridLinesStr = "";
+      for (let i = 1; i < TOTAL_WEEKS; i++) {
+        const lx = i * WEEK_PX;
+        gridLinesStr += `<div class="g-line${isMonthBoundary[i] ? " month" : ""}" style="left:${lx}px"></div>`;
+      }
+      const sharedGridLines = gridLinesStr;
+
+      // ── Build project rows ─────────────────────────────────────────────────
+      // Group by supervisor
+      const groups = new Map();
+      visibleProjs.forEach(p => {
+        const sid = p.supervisorId || "__none__";
+        if (!groups.has(sid)) groups.set(sid, []);
+        groups.get(sid).push(p);
+      });
+
+      let leftRowsHtml  = "";
+      let rightRowsHtml = "";
+
+      groups.forEach((projs, sid) => {
+        const sName = sid === "__none__" ? "Unassigned" : supName(sid);
+
+        // Group header row — same height each side
+        leftRowsHtml  += `<div class="gantt-group-left">${esc(sName)}</div>`;
+        rightRowsHtml += `<div class="gantt-group-right" style="width:${TOTAL_PX}px;height:34px"></div>`;
+
+        projs.forEach(p => {
+          const claims    = claimsByProj[p.id] || [];
+          const status    = projectStatus(claims);
+          const phaseDot  = p._phase === "Preliminaries"
+            ? `<span class="phase-dot-prelim" title="Preliminaries"></span>`
+            : `<span class="phase-dot-constr" title="Construction"></span>`;
+          const sDot      = `<span class="status-dot status-${status}" title="${statusTitle(status)}"></span>`;
+
+          leftRowsHtml += `
+            <div class="gantt-row-left">
+              <a class="gantt-proj-code" href="project-detail.html?projectId=${p.id}"
+                style="text-decoration:none">${esc(p.projectCode||"—")}</a>
+              <div class="gantt-proj-addr" title="${esc(p.projectAddress||"")}">${esc(p.projectAddress||"—")}</div>
+              <div class="gantt-proj-meta">
+                ${phaseDot}${sDot}
+                <span class="gantt-proj-sup">${esc(supName(p.supervisorId))}</span>
+              </div>
+            </div>`;
+
+          rightRowsHtml += buildTimelineRow(p, claims, sharedGridLines, todayPx);
+        });
+      });
+
+      // ── Assemble ───────────────────────────────────────────────────────────
+      const html = `
+        <div class="gantt-scroll-wrap">
+          <div class="gantt-table" style="min-width:${300 + TOTAL_PX}px">
+
+            <!-- Sticky left panel -->
+            <div class="gantt-left">
+              <div class="gantt-left-header"><span>Project</span></div>
+              ${leftRowsHtml}
+            </div>
+
+            <!-- Scrolling right panel -->
+            <div class="gantt-right">
+
+              <!-- Month header — absolutely positioned labels inside a relative container -->
+              <div class="gantt-months-row" style="width:${TOTAL_PX}px">
+                ${monthsHtml}
+              </div>
+
+              <!-- Week header — one flex cell per week, all exactly WEEK_PX -->
+              <div class="gantt-weeks-row" style="width:${TOTAL_PX}px">
+                <div style="position:absolute;top:6px;left:6px;font-family:'Poppins',sans-serif;font-size:8px;font-weight:600;color:#B7B09C;text-transform:uppercase;letter-spacing:0.5px;pointer-events:none;z-index:1">WEEK STARTING</div>
+                ${weeksHtml}
+                <!-- Today marker in the week row -->
+                <div class="gantt-today-marker" style="position:absolute;left:${todayPx}px;top:0;bottom:0;pointer-events:none"></div>
+              </div>
+
+              <!-- Project rows -->
+              <div style="position:relative;width:${TOTAL_PX}px">
+                ${rightRowsHtml}
+              </div>
+
+            </div>
+          </div>
+        </div>`;
+
+      document.getElementById("gantt-outer").innerHTML = html;
+
+      // Scroll so today is ~25% from the left
+      const scrollEl = document.querySelector(".gantt-scroll-wrap");
+      if (scrollEl) {
+        scrollEl.scrollLeft = Math.max(0, todayPx - scrollEl.clientWidth * 0.25);
+      }
+    }
+
+    // ── Build a single project timeline row ───────────────────────────────────
+    function buildTimelineRow(p, claims, gridLines, todayPx) {
+      const ROW_H = 64;
+
+      // Today line inside this row
+      const todayLine = `<div class="g-today" style="left:${todayPx.toFixed(1)}px"></div>`;
+
+      // ── Planned bars ───────────────────────────────────────────────────────
+      // Each bar spans from the previous claim's plannedIssueDate to this
+      // claim's plannedIssueDate (or from a reasonable default start).
+      console.log("[Gantt] Rendering row for:", p.projectCode, "| claims:", claims.length,
+        "| TL_START:", TL_START.toISOString().split("T")[0],
+        "| TOTAL_PX:", TOTAL_PX, "| WEEK_PX:", WEEK_PX);
+      let planBars = "";
+      if (claims.length > 0) {
+        let prevPx = null;
+        claims.forEach(cl => {
+          console.log("[Gantt] Bar check —", cl.claimName,
+            "| plannedIssueDate:", cl.plannedIssueDate,
+            "| actualIssueDate:", cl.actualIssueDate,
+            "| mode:", cl.mode,
+            "| claimNumber:", cl.claimNumber);
+          if (!cl.plannedIssueDate) {
+            console.log("[Gantt]   → SKIPPED (no plannedIssueDate)");
+            return;
+          }
+          const rightPx = pxFromISO(cl.plannedIssueDate);
+          if (rightPx === null) {
+            console.log("[Gantt]   → SKIPPED (pxFromISO returned null for:", cl.plannedIssueDate, ")");
+            return;
+          }
+          console.log("[Gantt]   → Rendering bar:", cl.claimName,
+            "plannedIssueDate:", cl.plannedIssueDate, "rightPx:", rightPx.toFixed(1));
+
+          // If no previous claim, start 4 weeks before this one
+          const leftPx  = prevPx !== null ? prevPx : Math.max(0, rightPx - WEEK_PX * 4);
+          const barW    = Math.max(4, rightPx - leftPx);
+          const label   = barW > 60 ? esc(cl.claimName||"") : "";
+
+          planBars += `<div class="claim-bar claim-bar-planned"
+            style="left:${leftPx.toFixed(1)}px;width:${barW.toFixed(1)}px"
+            title="${esc(cl.claimName||"")} · Planned ${fmtDate(cl.plannedIssueDate)} · ${fmtCurrency(cl.contractedAmountGST)}"
+            onclick="openPopup('${p.id}','${cl.id}','${esc(cl.claimName||"")}','${cl.plannedIssueDate||""}','${cl.actualIssueDate||""}','${fmtCurrency(cl.contractedAmountGST)}')"
+          >${label ? `<span class="claim-bar-label">${label}</span>` : ""}</div>`;
+
+          prevPx = rightPx;
+        });
+      }
+
+      // ── Actual bars ────────────────────────────────────────────────────────
+      let actBars = "";
+      if (claims.length > 0) {
+        let prevActPx = null;
+        claims.forEach(cl => {
+          if (!cl.actualIssueDate) return;
+          const actPx  = pxFromISO(cl.actualIssueDate);
+          const planPx = pxFromISO(cl.plannedIssueDate);
+          if (actPx === null) return;
+
+          const leftPx = prevActPx !== null ? prevActPx : Math.max(0, actPx - WEEK_PX);
+          const barW   = Math.max(4, actPx - leftPx);
+          const isLate = planPx !== null && actPx > planPx;
+          const cls    = isLate ? "claim-bar-act-late" : "claim-bar-act-ok";
+
+          actBars += `<div class="claim-bar ${cls}"
+            style="left:${leftPx.toFixed(1)}px;width:${barW.toFixed(1)}px"
+            title="${esc(cl.claimName||"")} · Actual ${fmtDate(cl.actualIssueDate)}${isLate?" · LATE":""}"
+          ></div>`;
+
+          prevActPx = actPx;
+        });
+      }
+
+      return `<div class="gantt-row-right" style="width:${TOTAL_PX}px;height:${ROW_H}px">
+        ${gridLines}
+        ${todayLine}
+        ${planBars}
+        ${actBars}
+      </div>`;
+    }
+
+    // ── Project status ────────────────────────────────────────────────────────
+    function projectStatus(claims) {
+      let s = "green";
+      claims.forEach(cl => {
+        if (cl.actualIssueDate) return;
+        if (!cl.plannedIssueDate) return;
+        const planned = new Date(cl.plannedIssueDate + "T00:00:00");
+        const diff    = Math.ceil((planned - TODAY) / 86400000);
+        if (diff < 0)                { s = "red"; }
+        else if (diff <= 14 && s !== "red") { s = "amber"; }
+      });
+      return s;
+    }
+    function statusTitle(s) {
+      return { green:"On track", amber:"Due soon (≤14 days)", red:"Overdue" }[s] || s;
+    }
+
+    // ── Popup ─────────────────────────────────────────────────────────────────
+    window.openPopup = function(projId, claimId, name, planned, actual, amount) {
+      popupProjId  = projId;
+      popupClaimId = claimId;
+      document.getElementById("cp-title").textContent = name || "Claim";
+      document.getElementById("cp-details").innerHTML =
+        `<div class="cp-row"><span>Planned date</span><strong>${fmtDate(planned)}</strong></div>` +
+        (actual ? `<div class="cp-row"><span>Actual date</span><strong>${fmtDate(actual)}</strong></div>` : "") +
+        (amount ? `<div class="cp-row"><span>Amount</span><strong>${amount}</strong></div>` : "");
+      document.getElementById("cp-date").value = planned || "";
+      document.getElementById("cp-save-ind").classList.remove("show");
+      document.getElementById("claim-popup").classList.add("open");
+    };
+
+    window.closePopup = function() {
+      document.getElementById("claim-popup").classList.remove("open");
+      popupProjId = popupClaimId = null;
+    };
+
+    document.addEventListener("click", function(e) {
+      const popup = document.getElementById("claim-popup");
+      const bar   = e.target.closest(".claim-bar");
+      if (bar) {
+        const rect = bar.getBoundingClientRect();
+        popup.style.left = Math.min(rect.left, window.innerWidth - 340) + "px";
+        popup.style.top  = (rect.bottom + 8) + "px";
+      } else if (!popup.contains(e.target)) {
+        closePopup();
+      }
+    }, true);
+
+    window.savePopupDate = async function() {
+      if (!popupProjId || !popupClaimId) return;
+      const dateVal = document.getElementById("cp-date").value;
+      const ind     = document.getElementById("cp-save-ind");
+      try {
+        await updateDoc(
+          doc(db, "projects", popupProjId, "claimschedule", popupClaimId),
+          { plannedIssueDate: dateVal, updatedAt: serverTimestamp() }
+        );
+        const cl = (claimsByProj[popupProjId]||[]).find(c => c.id === popupClaimId);
+        if (cl) cl.plannedIssueDate = dateVal;
+        ind.classList.add("show");
+        setTimeout(() => { ind.classList.remove("show"); closePopup(); renderGantt(); }, 1200);
+      } catch (err) {
+        alert("Could not save: " + err.message);
+      }
+    };
+
+    // ── Nav + auth ────────────────────────────────────────────────────────────
+    initNav({
+      pageId:       "gantt-board",
+      allowedRoles: [],
+      onReady: async (user, role) => {
+        try {
+          await loadAll();
+        } catch (err) {
+          document.getElementById("gantt-outer").innerHTML =
+            `<div class="gantt-empty" style="color:#9B2335">Failed to load: ${err.message}</div>`;
+        }
+      }
+    });
+  </script>
+</body>
+</html>

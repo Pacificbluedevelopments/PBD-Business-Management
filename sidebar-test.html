@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sidebar Test — Pacific Blue Developments</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+
+  <div id="loading-overlay"><div class="loading-text">PACIFIC BLUE</div></div>
+
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1 class="page-title">Sidebar Test</h1>
+        <p class="page-subtitle">Component verification</p>
+      </div>
+
+      <div class="card">
+        <p style="font-size:14px;line-height:1.7;color:var(--text-secondary)">
+          If you can see this with the sidebar working correctly, we are ready to rebuild all pages.
+        </p>
+      </div>
+
+    </main>
+  </div>
+
+  <script type="module">
+    import { initNav } from "./nav.js";
+
+    initNav({
+      pageId:       "sidebar-test",
+      allowedRoles: [],
+      onReady:      async (user, role) => { /* no page-specific setup needed */ }
+    });
+  </script>
+</body>
+</html>

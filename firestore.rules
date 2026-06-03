@@ -1,0 +1,172 @@
+// =============================================================================
+// firestore.rules
+// Pacific Blue Developments — Business Management Application
+// -----------------------------------------------------------------------------
+// Updated: Added subcollection rules for variations and meetingnotes under
+// the projects collection.
+//
+// Role values stored in Firestore userroles/{uid}, field "role":
+//   "director" | "sales" | "supervisor" | "accounts"
+//
+// Access matrix:
+//   directors    — full read/write on all collections and subcollections
+//   sales        — create + read leads; read projects + contacts + staffmembers
+//                  read variations + meetingnotes subcollections
+//   supervisors  — read projects + staffmembers; update specific project fields
+//                  read/write variations + meetingnotes subcollections
+//   accounts     — read projects + staffmembers
+//                  read variations + meetingnotes subcollections
+//   settings     — all authenticated roles read; directors write
+//   staffmembers — all authenticated roles read; directors write
+//   userroles    — each user reads own document; directors write
+//
+// Deploy with: firebase deploy --only firestore:rules
+// =============================================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helper functions
+    // -------------------------------------------------------------------------
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isDirector() {
+      return isAuthenticated() && request.auth.token.role == "director";
+    }
+
+    function isSales() {
+      return isAuthenticated() && request.auth.token.role == "sales";
+    }
+
+    function isSupervisor() {
+      return isAuthenticated() && request.auth.token.role == "supervisor";
+    }
+
+    function isAccounts() {
+      return isAuthenticated() && request.auth.token.role == "accounts";
+    }
+
+    // Returns true if a Supervisor write only touches permitted project fields
+    function supervisorFieldsOnly() {
+      let allowedFields = [
+        "currentStage",
+        "nextStage",
+        "nextStageDate",
+        "pipelineNotes",
+        "updatedAt"
+      ];
+      return request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(allowedFields);
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: userroles
+    // Each authenticated user can read their own role document.
+    // Only Directors can write.
+    // -------------------------------------------------------------------------
+    match /userroles/{userId} {
+      allow read:  if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isDirector();
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: leads
+    // Directors : full read/write
+    // Sales     : create and read
+    // Others    : no access
+    // -------------------------------------------------------------------------
+    match /leads/{leadId} {
+      allow read:           if isDirector() || isSales();
+      allow create:         if isDirector() || isSales();
+      allow update, delete: if isDirector();
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: projects (top-level document)
+    // Directors  : full read/write
+    // Sales      : read only
+    // Supervisors: read; update permitted fields only; no create/delete
+    // Accounts   : read only
+    // -------------------------------------------------------------------------
+    match /projects/{projectId} {
+      allow read:           if isDirector() || isSales() || isSupervisor() || isAccounts();
+      allow create, delete: if isDirector();
+      allow update:         if isDirector()
+                            || (isSupervisor() && supervisorFieldsOnly());
+
+      // -----------------------------------------------------------------------
+      // Subcollection: projects/{projectId}/variations
+      // Directors and Supervisors : read and write
+      // Sales and Accounts        : read only
+      // -----------------------------------------------------------------------
+      match /variations/{variationId} {
+        allow read:                   if isDirector() || isSupervisor() || isSales() || isAccounts();
+        allow create, update, delete: if isDirector() || isSupervisor();
+      }
+
+      // -----------------------------------------------------------------------
+      // Subcollection: projects/{projectId}/meetingnotes
+      // Directors and Supervisors : read and write
+      // Sales and Accounts        : read only
+      // -----------------------------------------------------------------------
+      match /meetingnotes/{noteId} {
+        allow read:                   if isDirector() || isSupervisor() || isSales() || isAccounts();
+        allow create, update, delete: if isDirector() || isSupervisor();
+      }
+
+      // -----------------------------------------------------------------------
+      // Subcollection: projects/{projectId}/claimschedule
+      // Directors and Accounts : read and write
+      // Supervisors and Sales  : read only
+      // -----------------------------------------------------------------------
+      match /claimschedule/{claimId} {
+        allow read:                   if isDirector() || isAccounts() || isSupervisor() || isSales();
+        allow create, update, delete: if isDirector() || isAccounts();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: contacts
+    // Directors : full read/write
+    // Sales     : read only
+    // Others    : no access
+    // -------------------------------------------------------------------------
+    match /contacts/{contactId} {
+      allow read:                   if isDirector() || isSales();
+      allow create, update, delete: if isDirector();
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: staffmembers
+    // ALL authenticated users can READ — required for staff dropdowns.
+    // Only Directors can CREATE, UPDATE, or DELETE.
+    // -------------------------------------------------------------------------
+    match /staffmembers/{staffId} {
+      allow read:                   if isAuthenticated();
+      allow create, update, delete: if isDirector();
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection: settings
+    // ALL authenticated roles can READ (market conditions calc).
+    // Only Directors can WRITE.
+    // -------------------------------------------------------------------------
+    match /settings/{docId} {
+      allow read:  if isAuthenticated();
+      allow write: if isDirector();
+    }
+
+    // -------------------------------------------------------------------------
+    // Catch-all: deny everything not explicitly permitted above
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

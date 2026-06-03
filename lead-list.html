@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lead List — Pacific Blue</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Actions banner ── */
+    .actions-banner {
+      display: none; align-items: center; gap: 12px;
+      padding: 14px 18px; background: #FEF3E2;
+      border: 1px solid #F6D860; border-radius: 8px;
+      color: #B7791F; font-size: 13px; font-weight: 500;
+      margin-bottom: 20px;
+    }
+    .actions-banner.show { display: flex; }
+    .actions-banner strong { color: #333F48; }
+
+    /* ── Section wrapper ── */
+    .section-wrap { margin-bottom: 24px; }
+
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #333F48; color: #fff;
+      padding: 12px 18px; border-radius: 8px 8px 0 0;
+      font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600;
+      user-select: none;
+    }
+    .section-header.collapsible { cursor: pointer; }
+    .section-header.collapsible:hover { background: #2a333c; }
+    .section-header-left { display: flex; align-items: center; gap: 10px; }
+    .section-badge {
+      background: rgba(255,255,255,0.15); border-radius: 20px;
+      padding: 2px 9px; font-size: 11px; font-weight: 600;
+    }
+    .section-chev { font-size: 11px; transition: transform 0.2s; }
+    .section-chev.closed { transform: rotate(-90deg); }
+
+    .section-body {
+      border: 1px solid #E5E3E0; border-top: none;
+      border-radius: 0 0 8px 8px; overflow: hidden;
+    }
+    .section-body.hidden { display: none; }
+
+    /* ── Summary line ── */
+    .summary-line { font-size: 13px; color: #6B7280; padding: 10px 0 6px; }
+    .summary-line strong { color: #333F48; }
+
+    /* ── Inline edit panel ── */
+    .edit-panel-row td { padding: 0; }
+    .edit-panel {
+      background: #FAFAF9; border-top: 2px solid #B7B09C;
+      border-bottom: 1px solid #E5E3E0; padding: 20px 24px;
+    }
+    .edit-panel-title {
+      font-size: 13px; font-weight: 600; color: #333F48;
+      margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .edit-grid {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px 20px;
+    }
+    .edit-group { display: flex; flex-direction: column; gap: 5px; }
+    .edit-group.span-2 { grid-column: span 2; }
+    .edit-group.span-3 { grid-column: span 3; }
+    .edit-group label {
+      font-size: 10px; font-weight: 600; color: #6B7280;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      font-family: 'Poppins', sans-serif;
+    }
+    .edit-group input,
+    .edit-group select,
+    .edit-group textarea {
+      font-family: 'Poppins', sans-serif; font-size: 13px;
+      color: #333F48; background: #fff; border: 1px solid #E5E3E0;
+      border-radius: 6px; padding: 7px 10px; width: 100%;
+      appearance: none; transition: border-color 0.2s;
+    }
+    .edit-group input:focus, .edit-group select:focus, .edit-group textarea:focus {
+      outline: none; border-color: #333F48;
+    }
+    .edit-group input:disabled, .edit-group select:disabled, .edit-group textarea:disabled {
+      background: #F5F4F2; color: #9CA3AF; cursor: not-allowed;
+    }
+    .edit-group textarea { resize: vertical; min-height: 68px; }
+    .edit-select-wrap { position: relative; }
+    .edit-select-wrap::after {
+      content: "▾"; position: absolute; right: 9px; top: 50%;
+      transform: translateY(-50%); font-size: 10px;
+      color: #6B7280; pointer-events: none;
+    }
+    .currency-wrap { position: relative; }
+    .currency-wrap input { padding-left: 22px; }
+    .currency-symbol {
+      position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+      font-size: 13px; color: #6B7280; pointer-events: none;
+    }
+    .edit-panel-footer {
+      display: flex; align-items: center; gap: 10px; margin-top: 16px;
+      padding-top: 16px; border-top: 1px solid #E5E3E0; flex-wrap: wrap;
+    }
+    .btn-save-changes {
+      padding: 8px 18px; background: #333F48; color: #fff;
+      border: none; border-radius: 6px; font-family: 'Poppins', sans-serif;
+      font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s;
+    }
+    .btn-save-changes:hover:not(:disabled) { background: #2a333c; }
+    .btn-save-changes:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-cancel-edit {
+      padding: 8px 14px; background: transparent; color: #6B7280;
+      border: 1px solid #E5E3E0; border-radius: 6px;
+      font-family: 'Poppins', sans-serif; font-size: 13px; cursor: pointer;
+    }
+    .btn-cancel-edit:hover { border-color: #333F48; color: #333F48; }
+    .edit-save-msg { font-size: 12px; font-weight: 600; color: #2D6A4F; display: none; }
+    .btn-activate-opp {
+      padding: 8px 16px; background: #B7B09C; color: #333F48;
+      border: none; border-radius: 6px; font-family: 'Poppins', sans-serif;
+      font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s;
+    }
+    .btn-activate-opp:hover { background: #c8c1ad; text-decoration: none; }
+    .badge-converted {
+      padding: 5px 12px; background: #EAF5EF; color: #2D6A4F;
+      border: 1px solid #B2DFCC; border-radius: 6px;
+      font-size: 12px; font-weight: 600;
+    }
+
+    /* ── Toggle buttons (open/closed) ── */
+    .toggle-group { display: flex; border-radius: 6px; overflow: hidden; border: 1px solid #E5E3E0; }
+    .toggle-btn {
+      flex: 1; padding: 7px 10px; background: #fff; color: #6B7280;
+      border: none; font-family: 'Poppins', sans-serif; font-size: 12px;
+      font-weight: 500; cursor: pointer; transition: background 0.15s, color 0.15s;
+    }
+    .toggle-btn.selected-open   { background: #EAF5EF; color: #2D6A4F; font-weight: 600; }
+    .toggle-btn.selected-closed { background: #FDEDF0; color: #9B2335; font-weight: 600; }
+
+    /* ── Table rows ── */
+    tbody tr.row-active { background: #FAFAF9; }
+    .btn-view-edit {
+      padding: 5px 12px; background: transparent; color: #333F48;
+      border: 1px solid #E5E3E0; border-radius: 6px;
+      font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s; white-space: nowrap;
+    }
+    .btn-view-edit:hover, .btn-view-edit.active { border-color: #333F48; background: #F5F4F2; }
+    .btn-view-project {
+      padding: 5px 10px; background: #333F48; color: #fff;
+      border: none; border-radius: 6px;
+      font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 500;
+      text-decoration: none; white-space: nowrap;
+      display: inline-flex; align-items: center;
+    }
+    .btn-view-project:hover { background: #2a333c; text-decoration: none; }
+
+    /* ── Qualified status badges ── */
+    .badge-tbd  { background: #F0F0F0; color: #6B7280; }
+    .badge-yes  { background: #EAF5EF; color: #2D6A4F; }
+    .badge-no   { background: #FDEDF0; color: #9B2335; }
+
+    /* ── Project phase badges ── */
+    .phase-sales         { background: #F5F4F2;  color: #6B7280; }
+    .phase-preliminaries { background: #EBF4FB;  color: #1A5276; }
+    .phase-construction  { background: #FEF9E7;  color: #B7791F; }
+    .phase-completed     { background: #EAFAF1;  color: #2D6A4F; }
+    .phase-onhold        { background: #FDEDEC;  color: #9B2335; }
+    .phase-cancelled     { background: #FDEDEC;  color: #9B2335; }
+    .phase-notfound      { background: #F5F4F2;  color: #9CA3AF; font-style: italic; }
+
+    /* ── Spinner ── */
+    .spinner-sm {
+      display: inline-block; width: 12px; height: 12px;
+      border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 768px) {
+      .edit-grid { grid-template-columns: 1fr 1fr; }
+      .edit-group.span-3 { grid-column: span 2; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <main class="main-content">
+
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1 class="page-title">Lead List</h1>
+          <p class="page-subtitle">Manage and qualify enquiries</p>
+        </div>
+        <a href="lead-entry.html" class="btn btn-primary">+ New Lead</a>
+      </div>
+
+      <!-- Actions required banner -->
+      <div class="actions-banner" id="actions-banner">
+        <span>🎯</span>
+        <span><strong id="actions-count">0</strong> qualified leads ready to activate — review and create project opportunities.</span>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════
+           SECTION 1 — ACTIVE LEADS
+           ═══════════════════════════════════════════════════════ -->
+      <div class="section-wrap">
+        <div class="section-header">
+          <div class="section-header-left">
+            Active Leads
+            <span class="section-badge" id="active-count-badge">—</span>
+          </div>
+        </div>
+
+        <!-- Filter bar (Active Leads only) -->
+        <div style="background:#fff;border:1px solid #E5E3E0;border-top:none;padding:14px 18px;display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+          <div class="filter-group" style="flex:1;min-width:160px">
+            <label style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px">Search</label>
+            <input class="form-input" type="text" id="filter-search" placeholder="Name or address…" />
+          </div>
+          <div class="filter-group" style="min-width:130px">
+            <label style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px">Qualified Status</label>
+            <div class="form-select-wrap">
+              <select class="form-select" id="filter-qualified">
+                <option value="">All</option>
+                <option value="TBD">TBD</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </div>
+          </div>
+          <div class="filter-group" style="min-width:140px">
+            <label style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px">Lead Source</label>
+            <div class="form-select-wrap">
+              <select class="form-select" id="filter-source">
+                <option value="">All Sources</option>
+                <option>Google</option><option>Facebook</option><option>Instagram</option>
+                <option>Signage</option><option>Referral-Client</option>
+                <option>Referral-Professional</option><option>Word of Mouth</option>
+                <option>Repeat</option><option>Mailchimp</option><option>ChatGPT</option>
+                <option>QR</option><option>Programmatic</option>
+                <option>Direct</option><option>Walk-In</option>
+              </select>
+            </div>
+          </div>
+          <div class="filter-group" style="min-width:120px">
+            <label style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px">Fiscal Year</label>
+            <div class="form-select-wrap">
+              <select class="form-select" id="filter-fy">
+                <option value="">All Years</option>
+              </select>
+            </div>
+          </div>
+          <div class="filter-group" style="min-width:110px">
+            <label style="font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px">Status</label>
+            <div class="form-select-wrap">
+              <select class="form-select" id="filter-open">
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+                <option value="">All</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-secondary" id="btn-clear-filters" style="margin-bottom:1px">Clear</button>
+        </div>
+
+        <div class="summary-line" id="summary-line" style="padding:8px 18px;background:#fff;border-left:1px solid #E5E3E0;border-right:1px solid #E5E3E0;margin:0;font-size:13px;color:#6B7280">Loading…</div>
+
+        <div class="section-body">
+          <div class="table-wrap" style="border:none;border-radius:0">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Name</th>
+                  <th>Address</th>
+                  <th>Lead Source</th>
+                  <th>Type</th>
+                  <th>Budget (ex GST)</th>
+                  <th>Qualified</th>
+                  <th>FY</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="leads-tbody">
+                <tr><td colspan="9" style="text-align:center;padding:40px;color:#6B7280">Loading leads…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════
+           SECTION 2 — CONVERTED LEADS (collapsed by default)
+           ═══════════════════════════════════════════════════════ -->
+      <div class="section-wrap">
+        <div class="section-header collapsible" onclick="toggleConverted()">
+          <div class="section-header-left">
+            Converted Leads
+            <span class="section-badge" id="converted-count-badge">0</span>
+          </div>
+          <span class="section-chev closed" id="converted-chev">▾</span>
+        </div>
+        <div class="section-body hidden" id="converted-section-body">
+          <div class="table-wrap" style="border:none;border-radius:0">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Name</th>
+                  <th>Address</th>
+                  <th>Lead Source</th>
+                  <th>Project Code</th>
+                  <th>Phase</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="converted-tbody">
+                <tr><td colspan="7" style="text-align:center;padding:32px;color:#6B7280">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <button id="sidebar-hamburger" aria-label="Open menu">☰</button>
+  <div id="sidebar-overlay"></div>
+
+  <script type="module">
+    import { initNav }   from "./nav.js";
+    import { db }        from "./firebase-config.js";
+    import {
+      collection, getDocs, getDoc, doc, updateDoc, query, orderBy, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let allLeads          = [];   // every lead from Firestore
+    let activeLeads       = [];   // convertedToProject !== true
+    let convertedLeads    = [];   // convertedToProject === true
+    let projectCache      = {};   // projectId → {projectCode, projectPhase}
+    let openEditId        = null;
+    let convertedOpenId   = null; // lead id open in converted read-only panel
+    const pendingOpenStatus = {};
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const leadsTbody      = document.getElementById("leads-tbody");
+    const convertedTbody  = document.getElementById("converted-tbody");
+    const summaryLine     = document.getElementById("summary-line");
+    const filterSearch    = document.getElementById("filter-search");
+    const filterQualified = document.getElementById("filter-qualified");
+    const filterSource    = document.getElementById("filter-source");
+    const filterFY        = document.getElementById("filter-fy");
+    const filterOpen      = document.getElementById("filter-open");
+    const btnClear        = document.getElementById("btn-clear-filters");
+    const actionsBanner   = document.getElementById("actions-banner");
+    const actionsCount    = document.getElementById("actions-count");
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function formatDate(iso) {
+      if (!iso) return "—";
+      const m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const d = new Date(iso + "T00:00:00");
+      return `${d.getDate()} ${m[d.getMonth()]} ${d.getFullYear()}`;
+    }
+    function formatBudget(v) {
+      if (!v && v !== 0) return "—";
+      return "$" + Number(v).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+    }
+    function qualifiedBadge(status) {
+      const cls = { TBD:"badge-tbd", Yes:"badge-yes", No:"badge-no" }[status] || "badge-tbd";
+      return `<span class="badge ${cls}">${status || "TBD"}</span>`;
+    }
+    function phaseBadge(phase) {
+      if (!phase) return '<span class="badge phase-notfound">—</span>';
+      const cls = {
+        "Sales":         "phase-sales",
+        "Preliminaries": "phase-preliminaries",
+        "Construction":  "phase-construction",
+        "Completed":     "phase-completed",
+        "On Hold":       "phase-onhold",
+        "Cancelled":     "phase-cancelled",
+      }[phase] || "phase-sales";
+      return `<span class="badge ${cls}">${phase}</span>`;
+    }
+
+    // ── Section 2 toggle ──────────────────────────────────────────────────────
+    window.toggleConverted = function() {
+      const body = document.getElementById("converted-section-body");
+      const chev = document.getElementById("converted-chev");
+      body.classList.toggle("hidden");
+      chev.classList.toggle("closed");
+    };
+
+    // ── Load all leads ────────────────────────────────────────────────────────
+    async function loadLeads() {
+      try {
+        const snap = await getDocs(query(collection(db, "leads"), orderBy("enquiryDate","desc")));
+        allLeads = [];
+        snap.forEach(d => allLeads.push({ id: d.id, ...d.data() }));
+
+        // Split into active / converted
+        activeLeads    = allLeads.filter(l => !l.convertedToProject);
+        convertedLeads = allLeads.filter(l =>  l.convertedToProject);
+
+        populateFYFilter();
+        updateActionsBanner();
+        renderActive();
+
+        // Fetch project data for all converted leads (in parallel)
+        await fetchProjectsForConverted();
+        renderConverted();
+
+      } catch (err) {
+        leadsTbody.innerHTML =
+          `<tr><td colspan="9" style="color:#9B2335;padding:24px">Failed to load: ${err.message}</td></tr>`;
+      }
+    }
+
+    // Fetch project documents for converted leads, cache results
+    async function fetchProjectsForConverted() {
+      const ids = [...new Set(convertedLeads.map(l => l.projectId).filter(Boolean))];
+      await Promise.all(ids.map(async pid => {
+        if (projectCache[pid]) return;
+        try {
+          const snap = await getDoc(doc(db, "projects", pid));
+          projectCache[pid] = snap.exists()
+            ? { projectCode: snap.data().projectCode || "—", projectPhase: snap.data().projectPhase || "—" }
+            : null; // null = project not found
+        } catch (e) {
+          projectCache[pid] = null;
+        }
+      }));
+    }
+
+    function populateFYFilter() {
+      // Only from active leads (not converted)
+      const fySet = new Set(activeLeads.map(l => l.fiscalYear).filter(Boolean));
+      const sorted = Array.from(fySet).sort().reverse();
+      const cur = filterFY.value;
+      while (filterFY.options.length > 1) filterFY.remove(1);
+      sorted.forEach(fy => {
+        const o = document.createElement("option");
+        o.value = o.textContent = fy;
+        filterFY.appendChild(o);
+      });
+      if (cur) filterFY.value = cur;
+    }
+
+    function updateActionsBanner() {
+      const count = activeLeads.filter(l => l.qualifiedStatus === "Yes").length;
+      actionsCount.textContent = count;
+      count > 0 ? actionsBanner.classList.add("show") : actionsBanner.classList.remove("show");
+    }
+
+    // ── SECTION 1: Active Leads ───────────────────────────────────────────────
+    function getFiltered() {
+      const search    = filterSearch.value.trim().toLowerCase();
+      const qualified = filterQualified.value;
+      const source    = filterSource.value;
+      const fy        = filterFY.value;
+      const openVal   = filterOpen.value;
+
+      return activeLeads.filter(l => {
+        if (search) {
+          const name = ((l.firstName||"")+" "+(l.lastName||"")).toLowerCase();
+          const addr = (l.projectAddress||"").toLowerCase();
+          if (!name.includes(search) && !addr.includes(search)) return false;
+        }
+        if (qualified && l.qualifiedStatus !== qualified) return false;
+        if (source    && l.leadSource      !== source)    return false;
+        if (fy        && l.fiscalYear      !== fy)        return false;
+        if (openVal === "open"   && l.openLeadStatus === false) return false;
+        if (openVal === "closed" && l.openLeadStatus !== false) return false;
+        return true;
+      });
+    }
+
+    function renderActive() {
+      const filtered = getFiltered();
+      const total    = activeLeads.length;
+
+      // Update count badge
+      document.getElementById("active-count-badge").textContent = total;
+
+      summaryLine.innerHTML =
+        `Showing <strong>${filtered.length}</strong> of <strong>${total}</strong> active lead${total !== 1 ? "s" : ""}`;
+
+      if (filtered.length === 0) {
+        leadsTbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:#6B7280">
+          ${total === 0
+            ? 'No leads recorded yet. <a href="lead-entry.html" style="color:#B7B09C;font-weight:600">Add the first lead →</a>'
+            : "No leads match the current filters."}
+        </td></tr>`;
+        return;
+      }
+
+      if (openEditId && !filtered.find(l => l.id === openEditId)) openEditId = null;
+
+      leadsTbody.innerHTML = filtered.map(lead => {
+        const isOpen = openEditId === lead.id;
+        const name   = ((lead.firstName||"")+" "+(lead.lastName||"")).trim() || "—";
+        return `
+          <tr class="${isOpen ? "row-active" : ""}" data-id="${lead.id}">
+            <td>${formatDate(lead.enquiryDate)}</td>
+            <td><strong>${name}</strong></td>
+            <td class="muted">${lead.projectAddress || "—"}</td>
+            <td>${lead.leadSource || "—"}</td>
+            <td>${lead.projectType || "—"}</td>
+            <td>${formatBudget(lead.estimatedBudget)}</td>
+            <td>${qualifiedBadge(lead.qualifiedStatus)}</td>
+            <td class="muted">${lead.fiscalYear || "—"}</td>
+            <td><button class="btn-view-edit ${isOpen ? "active" : ""}"
+              onclick="toggleEditPanel('${lead.id}')">${isOpen ? "Close" : "View / Edit"}</button></td>
+          </tr>
+          ${isOpen ? buildEditPanel(lead) : ""}`;
+      }).join("");
+    }
+
+    function buildEditPanel(lead, readOnly = false) {
+      const openChecked = lead.openLeadStatus !== false;
+      const sources  = ["Google","Facebook","Instagram","Signage","Referral-Client","Referral-Professional","Word of Mouth","Repeat","Mailchimp","ChatGPT","QR","Programmatic","Direct","Walk-In"];
+      const contacts = ["Phone","Email","Walk-In","Online Form","Referral Introduction"];
+      const types    = ["New Build","KDRB","Duplex","Granny Flat","Renovation","Commercial","Extension"];
+      const reasons  = ["Budget","Scope","Selected Alternative Builder","Timing","Disengaged","Design","Circumstances","Expectation"];
+      const opt      = (arr, cur) => arr.map(s => `<option value="${s}" ${cur===s?"selected":""}>${s}</option>`).join("");
+      const dis      = readOnly ? " disabled" : "";
+
+      const colSpan  = readOnly ? "7" : "9";
+      const title    = readOnly ? `View — ${((lead.firstName||"")+" "+(lead.lastName||"")).trim()}` : `Edit — ${((lead.firstName||"")+" "+(lead.lastName||"")).trim()}`;
+
+      return `
+        <tr class="edit-panel-row" data-edit-id="${lead.id}">
+          <td colspan="${colSpan}">
+            <div class="edit-panel">
+              <div class="edit-panel-title">${title}</div>
+              <div class="edit-grid">
+                <div class="edit-group">
+                  <label>Qualified Status</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-qualifiedStatus-${lead.id}"${dis}>
+                      <option value="TBD" ${lead.qualifiedStatus==="TBD"?"selected":""}>TBD</option>
+                      <option value="Yes" ${lead.qualifiedStatus==="Yes"?"selected":""}>Yes</option>
+                      <option value="No"  ${lead.qualifiedStatus==="No" ?"selected":""}>No</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="edit-group">
+                  <label>Lead Source</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-leadSource-${lead.id}"${dis}>
+                      <option value="">— Select —</option>${opt(sources, lead.leadSource)}
+                    </select>
+                  </div>
+                </div>
+                <div class="edit-group">
+                  <label>Form of Contact</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-formOfContact-${lead.id}"${dis}>
+                      <option value="">— Select —</option>${opt(contacts, lead.formOfContact)}
+                    </select>
+                  </div>
+                </div>
+                <div class="edit-group">
+                  <label>Project Type</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-projectType-${lead.id}"${dis}>
+                      <option value="">— Select —</option>${opt(types, lead.projectType)}
+                    </select>
+                  </div>
+                </div>
+                <div class="edit-group">
+                  <label>Estimated Budget (ex GST)</label>
+                  <div class="currency-wrap">
+                    <span class="currency-symbol">$</span>
+                    <input type="number" id="ep-estimatedBudget-${lead.id}"
+                      value="${lead.estimatedBudget ?? ""}" min="0" step="1000"${dis} />
+                  </div>
+                </div>
+                <div class="edit-group">
+                  <label>Non-Conversion Reason</label>
+                  <div class="edit-select-wrap">
+                    <select id="ep-nonConversionReason-${lead.id}"${dis}>
+                      <option value="">— None —</option>${opt(reasons, lead.nonConversionReason)}
+                    </select>
+                  </div>
+                </div>
+                <div class="edit-group">
+                  <label>Open Lead Status</label>
+                  <div class="toggle-group">
+                    <button type="button" class="toggle-btn ${openChecked?"selected-open":""}"
+                      id="ep-toggle-open-${lead.id}"
+                      ${readOnly?"disabled":""} onclick="${readOnly?"":"setOpenStatus('"+lead.id+"',true)"}">Open</button>
+                    <button type="button" class="toggle-btn ${!openChecked?"selected-closed":""}"
+                      id="ep-toggle-closed-${lead.id}"
+                      ${readOnly?"disabled":""} onclick="${readOnly?"":"setOpenStatus('"+lead.id+"',false)"}">Closed</button>
+                  </div>
+                </div>
+                <div class="edit-group span-2">
+                  <label>Qualification Notes</label>
+                  <textarea id="ep-qualificationNotes-${lead.id}"${dis}>${lead.qualificationNotes||""}</textarea>
+                </div>
+                <div class="edit-group span-3">
+                  <label>Project Description</label>
+                  <textarea id="ep-projectDescription-${lead.id}"${dis}>${lead.projectDescription||""}</textarea>
+                </div>
+              </div>
+              <div class="edit-panel-footer">
+                ${readOnly
+                  ? `<button class="btn-cancel-edit" onclick="closeConvertedPanel()">Close</button>
+                     <span class="badge-converted">✓ Opportunity Created</span>`
+                  : `<button class="btn-save-changes" id="ep-save-btn-${lead.id}" onclick="saveChanges('${lead.id}')">Save Changes</button>
+                     <button class="btn-cancel-edit" onclick="closeEditPanel()">Cancel</button>
+                     <span class="edit-save-msg" id="ep-save-msg-${lead.id}">✓ Saved</span>
+                     ${lead.qualifiedStatus === "Yes"
+                       ? `<a class="btn-activate-opp" href="project-create.html?leadId=${lead.id}">▶ Activate Opportunity</a>`
+                       : ""}`}
+              </div>
+            </div>
+          </td>
+        </tr>`;
+    }
+
+    window.toggleEditPanel = function(leadId) {
+      openEditId = openEditId === leadId ? null : leadId;
+      renderActive();
+    };
+    window.closeEditPanel = function() { openEditId = null; renderActive(); };
+
+    window.setOpenStatus = function(leadId, isOpen) {
+      pendingOpenStatus[leadId] = isOpen;
+      const btnO = document.getElementById(`ep-toggle-open-${leadId}`);
+      const btnC = document.getElementById(`ep-toggle-closed-${leadId}`);
+      if (btnO) btnO.className = "toggle-btn" + (isOpen  ? " selected-open"   : "");
+      if (btnC) btnC.className = "toggle-btn" + (!isOpen ? " selected-closed" : "");
+    };
+
+    window.saveChanges = async function(leadId) {
+      const saveBtn = document.getElementById(`ep-save-btn-${leadId}`);
+      const saveMsg = document.getElementById(`ep-save-msg-${leadId}`);
+      if (!saveBtn) return;
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner-sm"></span> Saving…';
+      try {
+        const lead       = activeLeads.find(l => l.id === leadId);
+        const openStatus = leadId in pendingOpenStatus ? pendingOpenStatus[leadId] : (lead ? lead.openLeadStatus : true);
+        const budgetVal  = document.getElementById(`ep-estimatedBudget-${leadId}`).value;
+        const updates    = {
+          qualifiedStatus:     document.getElementById(`ep-qualifiedStatus-${leadId}`).value,
+          qualificationNotes:  document.getElementById(`ep-qualificationNotes-${leadId}`).value.trim(),
+          nonConversionReason: document.getElementById(`ep-nonConversionReason-${leadId}`).value,
+          openLeadStatus:      openStatus,
+          leadSource:          document.getElementById(`ep-leadSource-${leadId}`).value,
+          formOfContact:       document.getElementById(`ep-formOfContact-${leadId}`).value,
+          projectType:         document.getElementById(`ep-projectType-${leadId}`).value,
+          estimatedBudget:     budgetVal ? parseFloat(budgetVal) : null,
+          projectDescription:  document.getElementById(`ep-projectDescription-${leadId}`).value.trim(),
+          updatedAt:           serverTimestamp()
+        };
+        await updateDoc(doc(db, "leads", leadId), updates);
+        const idx = activeLeads.findIndex(l => l.id === leadId);
+        if (idx > -1) activeLeads[idx] = { ...activeLeads[idx], ...updates };
+        // Also update in allLeads
+        const ai = allLeads.findIndex(l => l.id === leadId);
+        if (ai > -1) allLeads[ai] = { ...allLeads[ai], ...updates };
+        delete pendingOpenStatus[leadId];
+        saveMsg.style.display = "inline";
+        setTimeout(() => { saveMsg.style.display = "none"; }, 3000);
+        updateActionsBanner();
+        renderActive();
+      } catch (err) {
+        alert("Failed to save: " + err.message);
+      } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = "Save Changes"; }
+      }
+    };
+
+    // ── SECTION 2: Converted Leads ────────────────────────────────────────────
+    function renderConverted() {
+      const total = convertedLeads.length;
+      document.getElementById("converted-count-badge").textContent = total;
+
+      if (total === 0) {
+        convertedTbody.innerHTML =
+          `<tr><td colspan="7" style="text-align:center;padding:32px;color:#6B7280">No converted leads yet.</td></tr>`;
+        return;
+      }
+
+      convertedTbody.innerHTML = convertedLeads.map(lead => {
+        const name       = ((lead.firstName||"")+" "+(lead.lastName||"")).trim() || "—";
+        const proj       = lead.projectId ? projectCache[lead.projectId] : undefined;
+        const isOpen     = convertedOpenId === lead.id;
+
+        let projCodeHtml, phaseHtml, viewProjBtn;
+        if (!lead.projectId) {
+          projCodeHtml = `<span style="color:#9CA3AF;font-style:italic">No project linked</span>`;
+          phaseHtml    = `<span class="badge phase-notfound">—</span>`;
+          viewProjBtn  = "";
+        } else if (proj === null) {
+          // projectId set but project doc doesn't exist
+          projCodeHtml = `<span style="color:#9CA3AF;font-style:italic">Project not found</span>`;
+          phaseHtml    = `<span class="badge phase-notfound">Project not found</span>`;
+          viewProjBtn  = "";
+        } else if (proj === undefined) {
+          // still loading (shouldn't normally happen after await)
+          projCodeHtml = `<span style="color:#9CA3AF">Loading…</span>`;
+          phaseHtml    = `<span style="color:#9CA3AF">Loading…</span>`;
+          viewProjBtn  = "";
+        } else {
+          projCodeHtml = `<strong>${proj.projectCode}</strong>`;
+          phaseHtml    = phaseBadge(proj.projectPhase);
+          viewProjBtn  = `<a class="btn-view-project" href="project-detail.html?projectId=${lead.projectId}">View Project</a>`;
+        }
+
+        return `
+          <tr class="${isOpen ? "row-active" : ""}">
+            <td>${formatDate(lead.enquiryDate)}</td>
+            <td><strong>${name}</strong></td>
+            <td class="muted">${lead.projectAddress || "—"}</td>
+            <td>${lead.leadSource || "—"}</td>
+            <td>${projCodeHtml}</td>
+            <td>${phaseHtml}</td>
+            <td style="white-space:nowrap;display:flex;gap:6px;align-items:center">
+              ${viewProjBtn}
+              <button class="btn-view-edit ${isOpen ? "active" : ""}"
+                onclick="toggleConvertedPanel('${lead.id}')">${isOpen ? "Close" : "View Lead"}</button>
+            </td>
+          </tr>
+          ${isOpen ? buildEditPanel(lead, true) : ""}`;
+      }).join("");
+    }
+
+    window.toggleConvertedPanel = function(leadId) {
+      convertedOpenId = convertedOpenId === leadId ? null : leadId;
+      renderConverted();
+    };
+    window.closeConvertedPanel = function() { convertedOpenId = null; renderConverted(); };
+
+    // ── Filters ───────────────────────────────────────────────────────────────
+    filterSearch.addEventListener("input",    renderActive);
+    filterQualified.addEventListener("change",renderActive);
+    filterSource.addEventListener("change",   renderActive);
+    filterFY.addEventListener("change",       renderActive);
+    filterOpen.addEventListener("change",     renderActive);
+    btnClear.addEventListener("click", () => {
+      filterSearch.value = ""; filterQualified.value = "";
+      filterSource.value = ""; filterFY.value = ""; filterOpen.value = "open";
+      renderActive();
+    });
+
+    // ── Nav + auth ────────────────────────────────────────────────────────────
+    initNav({
+      pageId:       "lead-list",
+      allowedRoles: [],
+      onReady: async (user, role) => { await loadLeads(); }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Construction Meeting Notes — Pacific Blue</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Meeting header ── */
+    .meeting-header {
+      background:#fff;border:1px solid #E5E3E0;border-radius:8px;
+      padding:16px 22px;margin-bottom:20px;
+      display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+    }
+    .meeting-date-btn {
+      font-family:'Poppins',sans-serif;font-size:18px;font-weight:600;
+      color:#B7B09C;background:none;border:none;
+      border-bottom:2px dashed #B7B09C;padding:0 2px;cursor:pointer;
+    }
+    .date-picker-wrap{position:relative;display:inline-block;}
+    .date-picker-input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;}
+    .meeting-sub{font-size:13px;color:#6B7280;margin-top:4px;}
+    .btn-print{padding:7px 14px;background:#F5F4F2;color:#333F48;border:1px solid #E5E3E0;
+      border-radius:6px;font-family:'Poppins',sans-serif;font-size:12px;font-weight:500;cursor:pointer;}
+    .btn-print:hover{background:#E5E3E0;}
+
+    /* ── Section wrapper ── */
+    .section-wrap{margin-bottom:20px;}
+    .section-toggle{
+      width:100%;display:flex;align-items:center;justify-content:space-between;
+      background:#333F48;color:#fff;border:none;
+      padding:12px 18px;border-radius:8px 8px 0 0;
+      font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;cursor:pointer;
+    }
+    .section-toggle:hover{background:#2a333c;}
+    .section-toggle-left{display:flex;align-items:center;gap:10px;}
+    .section-count{background:rgba(255,255,255,0.15);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600;}
+    .section-chev{font-size:11px;transition:transform 0.2s;}
+    .section-chev.closed{transform:rotate(-90deg);}
+    .section-body{border:1px solid #E5E3E0;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;}
+    .section-body.hidden{display:none;}
+    .section-empty{padding:24px;text-align:center;color:#6B7280;font-size:13px;background:#fff;}
+
+    /* ── Project card ── */
+    .proj-card{background:#fff;border-bottom:2px solid #E5E3E0;}
+    .proj-card:last-child{border-bottom:none;}
+    .proj-header{background:#333F48;padding:11px 18px;display:flex;align-items:flex-start;
+      justify-content:space-between;gap:12px;flex-wrap:wrap;}
+    .proj-header-left{flex:1;min-width:0;}
+    .proj-code-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;}
+    .proj-code{font-size:14px;font-weight:700;color:#B7B09C;}
+    .proj-type{font-size:10px;background:rgba(255,255,255,0.1);border-radius:20px;
+      padding:2px 8px;color:rgba(255,255,255,0.65);}
+    .proj-address{font-size:12px;color:rgba(255,255,255,0.65);}
+    .rb-flag{display:none;font-size:11px;font-weight:700;color:#9B2335;
+      background:rgba(155,35,53,0.15);border-radius:4px;padding:2px 7px;}
+    .rb-flag.show{display:inline;}
+    .proj-header-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
+    .proj-meta{font-size:12px;color:rgba(255,255,255,0.75);}
+    .proj-meta strong{color:#fff;}
+    .stage-badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;
+      border-radius:20px;background:rgba(183,176,156,0.2);color:#B7B09C;}
+    .btn-detail{font-size:11px;font-weight:600;padding:3px 9px;
+      background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);
+      border-radius:6px;color:#fff;text-decoration:none;}
+    .btn-detail:hover{background:rgba(255,255,255,0.18);text-decoration:none;}
+
+    /* ── Project body ── */
+    .proj-body{padding:14px 18px;display:flex;flex-direction:column;gap:12px;}
+    .sub-card{border:1px solid #E5E3E0;border-radius:6px;overflow:hidden;}
+    .sub-label{
+      background:#F5F4F2;padding:7px 13px;font-size:11px;font-weight:600;
+      color:#333F48;text-transform:uppercase;letter-spacing:0.5px;
+      border-bottom:1px solid #E5E3E0;
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .sub-body{padding:12px 13px;}
+
+    /* ── Date rows ── */
+    .date-row{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid #E5E3E0;}
+    .date-row:last-child{border-bottom:none;}
+    .date-row-label{flex:1;font-size:13px;color:#6B7280;display:flex;align-items:center;gap:5px;}
+    .date-row-value{font-size:13px;font-weight:500;color:#333F48;min-width:110px;text-align:right;}
+    .lock-icon{font-size:10px;color:#B7B09C;}
+    .date-input{font-family:'Poppins',sans-serif;font-size:12px;color:#333F48;
+      border:1px solid #E5E3E0;border-radius:6px;padding:4px 8px;background:#fff;}
+    .date-input:focus{outline:none;border-color:#333F48;}
+    .save-ind{font-size:11px;color:#2D6A4F;display:none;margin-left:4px;}
+    .save-ind.show{display:inline;}
+
+    /* ── Stage claims ── */
+    .stage-row{display:flex;align-items:flex-start;gap:12px;padding:7px 0;border-bottom:1px solid #E5E3E0;}
+    .stage-row:last-child{border-bottom:none;}
+    .stage-row-label{width:130px;flex-shrink:0;font-size:13px;color:#6B7280;padding-top:2px;}
+    .stage-row-content{flex:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .stage-value{font-size:13px;font-weight:600;color:#333F48;}
+
+    /* ── Claim / contracted status banners ── */
+    .claim-warning{background:#FEF3E2;border:1px solid #F6D860;border-radius:6px;
+      padding:9px 12px;font-size:13px;color:#B7791F;
+      display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+    .claim-ok{background:#EAF5EF;border:1px solid #B2DFCC;border-radius:6px;
+      padding:9px 12px;font-size:13px;color:#2D6A4F;}
+    .btn-link-sm{font-size:12px;font-weight:600;color:#B7791F;text-decoration:underline;cursor:pointer;}
+
+    /* ── Phase action panel ── */
+    .phase-action-wrap{display:flex;flex-direction:column;gap:8px;}
+    .btn-phase-action{font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;
+      padding:8px 18px;background:#B7B09C;border:none;border-radius:6px;
+      color:#333F48;cursor:pointer;transition:background 0.15s;width:fit-content;}
+    .btn-phase-action:hover{background:#c8c1ad;}
+    .phase-panel{display:none;padding:14px;background:#FEF3E2;
+      border:1px solid #F6D860;border-radius:6px;max-width:420px;}
+    .phase-panel.open{display:block;}
+    .phase-panel h4{font-size:11px;font-weight:600;color:#333F48;text-transform:uppercase;
+      letter-spacing:0.4px;margin-bottom:10px;}
+    .pcf-row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+    .pcf-row label{font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.4px;}
+    .pcf-row input{font-family:'Poppins',sans-serif;font-size:13px;color:#333F48;
+      border:1px solid #E5E3E0;border-radius:6px;padding:6px 9px;width:100%;}
+    .pcf-row input:focus{outline:none;border-color:#333F48;}
+    .pcf-actions{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;}
+    .btn-phase-confirm{font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;
+      padding:7px 15px;background:#333F48;border:none;border-radius:6px;color:#fff;cursor:pointer;}
+    .btn-phase-confirm:hover:not(:disabled){background:#2a333c;}
+    .btn-phase-confirm:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-pcf-cancel{background:none;border:none;font-family:'Poppins',sans-serif;
+      font-size:13px;color:#6B7280;cursor:pointer;text-decoration:underline;}
+    .phase-action-msg{font-size:12px;font-weight:600;color:#2D6A4F;display:none;}
+    .phase-action-err{font-size:12px;font-weight:600;color:#9B2335;display:none;}
+
+    /* ── Supervisor edit ── */
+    .sup-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .sup-name{font-size:13px;font-weight:600;color:#333F48;}
+    .btn-edit-sm{font-family:'Poppins',sans-serif;font-size:11px;font-weight:500;
+      padding:3px 8px;background:#F5F4F2;border:1px solid #E5E3E0;border-radius:4px;
+      color:#6B7280;cursor:pointer;}
+    .btn-edit-sm:hover{border-color:#333F48;color:#333F48;}
+    .sup-edit-row{display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;}
+    .sup-edit-row.open{display:flex;}
+    .sup-edit-row select{font-family:'Poppins',sans-serif;font-size:13px;color:#333F48;
+      border:1px solid #E5E3E0;border-radius:6px;padding:5px 8px;appearance:none;}
+    .btn-sup-save{font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;
+      padding:5px 12px;background:#333F48;border:none;border-radius:6px;color:#fff;cursor:pointer;}
+
+    /* ── Variations ── */
+    .disc-item{display:flex;align-items:flex-start;gap:8px;padding:7px 0;
+      border-bottom:1px solid #E5E3E0;flex-wrap:wrap;}
+    .disc-item:last-child{border-bottom:none;}
+    .disc-item.resolved .disc-desc{text-decoration:line-through;color:#9CA3AF;}
+    .disc-desc{flex:1;font-size:13px;color:#333F48;min-width:150px;}
+    .disc-status{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
+    .disc-discussing{background:#F0F0F0;color:#6B7280;}
+    .disc-pending{background:#FEF3E2;color:#B7791F;}
+    .disc-resolved{background:#EAF5EF;color:#2D6A4F;}
+    .disc-btns{display:flex;gap:4px;flex-shrink:0;}
+    .disc-edit-row{display:none;align-items:center;gap:6px;padding:6px 0;flex-wrap:wrap;}
+    .disc-edit-row.open{display:flex;}
+    .disc-add-form{display:none;margin-top:10px;padding:12px;background:#F5F4F2;border-radius:6px;}
+    .disc-add-form.open{display:block;}
+    .disc-empty{font-size:13px;color:#6B7280;padding:8px 0;}
+    .form-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;}
+    .form-group{display:flex;flex-direction:column;gap:4px;}
+    .form-group.grow{flex:1;min-width:200px;}
+    .form-label{font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.4px;}
+    .form-input{font-family:'Poppins',sans-serif;font-size:13px;color:#333F48;
+      border:1px solid #E5E3E0;border-radius:6px;padding:6px 9px;width:100%;}
+    .form-input:focus{outline:none;border-color:#333F48;}
+    .field-select{font-family:'Poppins',sans-serif;font-size:13px;color:#333F48;
+      border:1px solid #E5E3E0;border-radius:6px;padding:6px 8px;appearance:none;background:#fff;}
+    .select-wrap{position:relative;}
+    .select-wrap::after{content:"▾";position:absolute;right:8px;top:50%;
+      transform:translateY(-50%);font-size:10px;color:#6B7280;pointer-events:none;}
+    .btn-gold-sm{font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;
+      padding:5px 12px;background:#B7B09C;border:none;border-radius:6px;
+      color:#333F48;cursor:pointer;}
+    .btn-gold-sm:hover{background:#c8c1ad;}
+    .btn-cancel-sm{background:none;border:none;font-family:'Poppins',sans-serif;
+      font-size:12px;color:#6B7280;cursor:pointer;text-decoration:underline;}
+    .btn-xs{font-family:'Poppins',sans-serif;font-size:11px;font-weight:500;
+      padding:2px 7px;background:#F5F4F2;border:1px solid #E5E3E0;border-radius:4px;cursor:pointer;}
+    .btn-xs:hover{border-color:#333F48;}
+    .btn-xs-danger{background:#FDEDF0;color:#9B2335;border-color:#F1B9C0;}
+    .btn-xs-danger:hover{background:#f5c0c8;}
+    .show-resolved-btn{font-family:'Poppins',sans-serif;font-size:11px;font-weight:500;
+      padding:2px 8px;background:#F5F4F2;border:1px solid #E5E3E0;border-radius:4px;
+      color:#6B7280;cursor:pointer;}
+
+    /* ── Notes textarea ── */
+    .notes-textarea{width:100%;font-family:'Poppins',sans-serif;font-size:13px;color:#333F48;
+      border:1px solid #E5E3E0;border-radius:6px;padding:8px 10px;
+      resize:vertical;min-height:72px;background:#fff;}
+    .notes-textarea:focus{outline:none;border-color:#333F48;}
+
+    /* ── Save row ── */
+    .save-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:4px;}
+    .btn-save{font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;
+      padding:8px 18px;background:#333F48;border:none;border-radius:6px;
+      color:#fff;cursor:pointer;}
+    .btn-save:hover:not(:disabled){background:#2a333c;}
+    .btn-save:disabled{opacity:.5;cursor:not-allowed;}
+    .save-msg{font-size:12px;font-weight:600;display:none;}
+    .save-msg.show{display:inline;}
+    .save-success{color:#2D6A4F;}
+    .save-error{color:#9B2335;}
+
+    /* ── Inline messages ── */
+    .inline-msg{font-size:12px;font-weight:600;display:none;}
+    .inline-msg.show{display:inline;}
+    .inline-error{color:#9B2335;}
+    .inline-success{color:#2D6A4F;}
+
+    /* ── Previous notes ── */
+    .prev-toggle{
+      width:100%;background:none;border:none;border-top:1px solid #E5E3E0;
+      text-align:left;padding:8px 13px;font-family:'Poppins',sans-serif;
+      font-size:12px;font-weight:600;color:#6B7280;cursor:pointer;
+      display:flex;justify-content:space-between;align-items:center;
+    }
+    .prev-toggle:hover{background:#F5F4F2;color:#333F48;}
+    .prev-body{display:none;padding:0 13px 13px;}
+    .prev-body.open{display:block;}
+    .prev-note{border:1px solid #E5E3E0;border-radius:6px;padding:9px 11px;margin-top:10px;background:#F5F4F2;}
+    .prev-date{font-size:12px;font-weight:700;color:#333F48;margin-bottom:5px;}
+    .prev-field-label{font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.3px;}
+    .prev-field-value{font-size:13px;color:#333F48;white-space:pre-wrap;margin-top:1px;}
+
+    .spinner{display:inline-block;width:12px;height:12px;
+      border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;
+      border-radius:50%;animation:spin 0.7s linear infinite;}
+    .spinner-dark{display:inline-block;width:11px;height:11px;
+      border:2px solid rgba(51,63,72,0.15);border-top-color:#333F48;
+      border-radius:50%;animation:spin 0.7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+
+    @media print{
+      #sidebar,#sidebar-hamburger,#sidebar-overlay,.btn-print,
+      .btn-save,.phase-action-wrap,.prev-toggle,.save-row{display:none!important;}
+      .section-body.hidden{display:block!important;}
+      .prev-body{display:block!important;}
+      .main-content{margin-left:0!important;}
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <main class="main-content">
+
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1 class="page-title">Construction Meeting Notes</h1>
+          <p class="page-subtitle">Weekly construction review — Preliminaries and Construction phase</p>
+        </div>
+        <button class="btn-print" onclick="window.print()">🖨 Print</button>
+      </div>
+
+      <!-- Meeting header -->
+      <div class="meeting-header">
+        <div>
+          <div style="font-size:18px;font-weight:600;color:#333F48;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            Construction Meeting —
+            <span class="date-picker-wrap">
+              <button class="meeting-date-btn" id="meeting-date-display">Loading…</button>
+              <input type="date" class="date-picker-input" id="meeting-date-input" />
+            </span>
+          </div>
+          <div class="meeting-sub" id="meeting-subtitle">Loading projects…</div>
+        </div>
+      </div>
+
+      <div id="board"></div>
+
+    </main>
+  </div>
+
+  <button id="sidebar-hamburger" aria-label="Open menu">☰</button>
+  <div id="sidebar-overlay"></div>
+
+  <script type="module">
+    import { initNav }  from "./nav.js";
+    import { db }       from "./firebase-config.js";
+    import {
+      collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
+      query, orderBy, limit, where, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    let currentUser   = null;
+    let currentRole   = null;
+    let allProjects   = [];
+    let supervisorMap = {};  // id → staffmember data
+    let supervisors   = [];  // array of {id, name} for director edits
+    let meetingDate   = new Date().toISOString().split("T")[0];
+    const nextClaimDocIds = {};
+    const showResolvedMap = {};
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function fmtDate(iso) {
+      if (!iso) return "—";
+      const m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const d = new Date(iso + "T00:00:00");
+      return `${d.getDate()} ${m[d.getMonth()]} ${d.getFullYear()}`;
+    }
+    function fmtCurrency(val) {
+      if (!val && val !== 0) return "—";
+      return "$" + Number(val).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+    }
+    function supervisorName(id) {
+      const s = supervisorMap[id];
+      return s ? `${s.firstName||""} ${s.lastName||""}`.trim() : "—";
+    }
+    function esc(str) {
+      return String(str||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    // ── Load all data ─────────────────────────────────────────────────────────
+    async function loadAll() {
+      // Staff
+      const staffSnap = await getDocs(collection(db, "staffmembers"));
+      staffSnap.forEach(d => { supervisorMap[d.id] = d.data(); });
+      supervisors = [];
+      staffSnap.forEach(d => {
+        const s = d.data();
+        if ((s.role||"").toLowerCase() === "supervisor" && s.isActive !== false) {
+          supervisors.push({ id: d.id, name: `${s.firstName||""} ${s.lastName||""}`.trim() });
+        }
+      });
+
+      // Projects — Prelim + Construction, phase derived from milestone dates.
+      // Phase is never stored directly in Firestore — always calculate it.
+      function derivePhase(p) {
+        if (p.cancelledAt)     return "Cancelled";
+        if (p.onHoldAt)        return "On Hold";
+        if (p.completedAt)     return "Completed";
+        if (p.pcClaimIssued)   return "Practical Completion";
+        if (p.contractDate)    return "Construction";
+        if (p.preliminaryDate) return "Preliminaries";
+        return "Sales";
+      }
+      const snap = await getDocs(query(collection(db, "projects"), orderBy("projectCode","asc")));
+      allProjects = [];
+      snap.forEach(d => {
+        const p     = d.data();
+        if (p.deletedAt) return;
+        const phase = derivePhase(p);
+        if (phase === "Preliminaries" || phase === "Construction")
+          allProjects.push({ id: d.id, ...p, _phase: phase });
+      });
+      renderBoard();
+    }
+
+    // ── Render board ──────────────────────────────────────────────────────────
+    function renderBoard() {
+      const prelim = allProjects.filter(p => p._phase === "Preliminaries");
+      const constr = allProjects.filter(p => p._phase === "Construction");
+
+      document.getElementById("meeting-date-display").textContent = fmtDate(meetingDate);
+      document.getElementById("meeting-date-input").value = meetingDate;
+      document.getElementById("meeting-subtitle").textContent =
+        `${allProjects.length} project${allProjects.length!==1?"s":""} — ${prelim.length} in Prelim — ${constr.length} in Construction`;
+
+      const groups = [
+        { key:"prelim", label:"Preliminaries", icon:"📐", list:prelim, builder:buildPrelimCard },
+        { key:"constr", label:"Construction",  icon:"🏗️", list:constr, builder:buildConstrCard }
+      ];
+
+      document.getElementById("board").innerHTML = groups.map(g => `
+        <div class="section-wrap">
+          <button class="section-toggle" onclick="toggleSection('${g.key}')">
+            <div class="section-toggle-left">
+              ${g.icon} ${g.label}
+              <span class="section-count">${g.list.length}</span>
+            </div>
+            <span class="section-chev" id="chev-${g.key}">▾</span>
+          </button>
+          <div class="section-body" id="section-${g.key}">
+            ${g.list.length === 0
+              ? `<div class="section-empty">No ${g.label.toLowerCase()} projects.</div>`
+              : g.list.map(p => g.builder(p)).join("")}
+          </div>
+        </div>`).join("");
+
+      allProjects.forEach(p => {
+        loadTodayNotes(p.id, p._phase);
+        loadPrevNotes(p.id);
+        loadContractedScheduleStatus(p.id);
+        if (p._phase === "Construction") {
+          loadVariations(p.id);
+          loadClaimScheduleForProject(p.id);
+        }
+      });
+    }
+
+    window.toggleSection = function(key) {
+      document.getElementById(`section-${key}`)?.classList.toggle("hidden");
+      document.getElementById(`chev-${key}`)?.classList.toggle("closed");
+    };
+
+    // ── Contracted claim schedule status ──────────────────────────────────────
+    async function loadContractedScheduleStatus(projId) {
+      const el = document.getElementById(`contracted-status-${projId}`);
+      if (!el) return;
+      try {
+        const snap = await getDocs(collection(db, "projects", projId, "claimschedule"));
+        if (snap.empty) {
+          el.innerHTML = `<div class="claim-warning">⚠ Contracted claim schedule not yet set up
+            <a class="btn-link-sm" href="project-detail.html?projectId=${projId}#claim-schedule">Set up now ↗</a>
+          </div>`;
+        } else {
+          const total = snap.docs.reduce((s,d) => s + (d.data().contractedAmountGST||d.data().estimatedAmount||0), 0);
+          el.innerHTML = `<div class="claim-ok">✓ Contracted schedule set — ${snap.size} claim${snap.size!==1?"s":""} — Total ${fmtCurrency(total)}</div>`;
+        }
+      } catch (e) {}
+    }
+
+    // ── Supervisor dropdown options ───────────────────────────────────────────
+    function supOptions(currentId) {
+      return supervisors.map(s =>
+        `<option value="${s.id}" ${s.id===currentId?"selected":""}>${esc(s.name)}</option>`
+      ).join("");
+    }
+
+    // ── Prev notes section ────────────────────────────────────────────────────
+    function prevSection(projId) {
+      return `
+        <button class="prev-toggle" onclick="togglePrev('${projId}')">
+          <span>📅 Previous Notes</span>
+          <span id="prev-chev-${projId}">▾</span>
+        </button>
+        <div class="prev-body" id="prev-body-${projId}">
+          <div id="prev-content-${projId}">
+            <div style="color:#6B7280;font-size:13px;padding-top:10px">Loading…</div>
+          </div>
+        </div>`;
+    }
+
+    window.togglePrev = function(id) {
+      const body = document.getElementById(`prev-body-${id}`);
+      const chev = document.getElementById(`prev-chev-${id}`);
+      if (!body) return;
+      const open = body.classList.toggle("open");
+      if (chev) chev.textContent = open ? "▴" : "▾";
+    };
+
+    // ── Date row helpers ──────────────────────────────────────────────────────
+    function editableDateRow(projId, field, label, val) {
+      const indId = `ind-${projId}-${field}`;
+      return `<div class="date-row">
+        <div class="date-row-label">${label}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="date" class="date-input" value="${val||""}"
+            onchange="saveProjectDate('${projId}','${field}',this.value,'${indId}')" />
+          <span class="save-ind" id="${indId}">✓ Saved</span>
+        </div>
+      </div>`;
+    }
+    function readonlyDateRow(label, val) {
+      return `<div class="date-row">
+        <div class="date-row-label"><span class="lock-icon">🔒</span> ${label}</div>
+        <div class="date-row-value">${fmtDate(val)}</div>
+      </div>`;
+    }
+
+    // ── PRELIM card ───────────────────────────────────────────────────────────
+    function buildPrelimCard(p) {
+      const id   = p.id;
+      const supOpts = supOptions(p.supervisorId||"");
+      const today = new Date().toISOString().split("T")[0];
+
+      return `
+        <div class="proj-card" id="card-${id}">
+          <div class="proj-header">
+            <div class="proj-header-left">
+              <div class="proj-code-line">
+                <span class="proj-code">${esc(p.projectCode||"—")}</span>
+                ${p.projectType ? `<span class="proj-type">${esc(p.projectType)}</span>` : ""}
+              </div>
+              <div class="proj-address">${esc(p.projectAddress||"—")}</div>
+            </div>
+            <div class="proj-header-right">
+              <div class="proj-meta"><strong>${esc(supervisorName(p.supervisorId))}</strong></div>
+              <div class="proj-meta">${fmtCurrency(p.contractValueGST||p.estimatedBudget)}</div>
+              <a class="btn-detail" href="project-detail.html?projectId=${id}">Full Detail ↗</a>
+            </div>
+          </div>
+          <div class="proj-body">
+
+            <!-- Supervisor Assignment -->
+            <div class="sub-card">
+              <div class="sub-label">Supervisor Assignment</div>
+              <div class="sub-body">
+                <div class="sup-row">
+                  <span class="sup-name" id="sup-name-${id}">${esc(supervisorName(p.supervisorId))}</span>
+                  ${currentRole==="director"
+                    ? `<button class="btn-edit-sm" onclick="toggleSupEdit('${id}')">Edit</button>`
+                    : ""}
+                </div>
+                <div class="sup-edit-row" id="sup-edit-${id}">
+                  <div class="select-wrap">
+                    <select class="field-select" id="sup-sel-${id}">
+                      <option value="">— Unassigned —</option>${supOpts}
+                    </select>
+                  </div>
+                  <button class="btn-sup-save" onclick="saveSupervisor('${id}')">Save</button>
+                  <button class="btn-cancel-sm" onclick="toggleSupEdit('${id}')">Cancel</button>
+                  <span class="save-ind" id="sup-ind-${id}">✓ Saved</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Key Dates -->
+            <div class="sub-card">
+              <div class="sub-label">Key Dates</div>
+              <div class="sub-body">
+                ${readonlyDateRow("Preliminary Agreement Date (signed)", p.preliminaryDate)}
+                ${editableDateRow(id,"contractDate","Contract Target Date",p.contractDate)}
+                ${editableDateRow(id,"commenceDate","Commencement Target Date",p.commenceDate)}
+              </div>
+            </div>
+
+            <!-- Contracted Claim Schedule -->
+            <div class="sub-card">
+              <div class="sub-label">Contracted Claim Schedule</div>
+              <div class="sub-body">
+                <div id="contracted-status-${id}">
+                  <span style="color:#6B7280;font-size:13px"><span class="spinner-dark"></span> Checking…</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Record Construction Contract -->
+            <div class="sub-card">
+              <div class="sub-label">Phase Transition</div>
+              <div class="sub-body">
+                <div class="phase-action-wrap">
+                  <button class="btn-phase-action" onclick="toggleContractPanel('${id}')">
+                    ✏️ Record Construction Contract
+                  </button>
+                  <div class="phase-panel" id="contract-panel-${id}">
+                    <h4>Record Construction Contract</h4>
+                    <div class="pcf-row">
+                      <label>Contract Date</label>
+                      <input type="date" id="pcf-cdate-${id}" value="${today}" />
+                    </div>
+                    <div class="pcf-row">
+                      <label>Contract Value inc GST ($)</label>
+                      <input type="number" id="pcf-cval-${id}" min="0" step="1000" placeholder="e.g. 550000" />
+                    </div>
+                    <div class="pcf-actions">
+                      <button class="btn-phase-confirm" id="pcf-cbtn-${id}" onclick="confirmContract('${id}')">
+                        Confirm — Move to Construction
+                      </button>
+                      <button class="btn-pcf-cancel" onclick="toggleContractPanel('${id}')">Cancel</button>
+                      <span class="phase-action-msg" id="pcf-cmsg-${id}"></span>
+                      <span class="phase-action-err" id="pcf-cerr-${id}"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Prelim Update -->
+            <div class="sub-card">
+              <div class="sub-label">Construction Prelim Update</div>
+              <div class="sub-body">
+                <textarea class="notes-textarea" id="prelim-update-${id}"
+                  placeholder="Site preparation, council approvals, design progress…"></textarea>
+              </div>
+            </div>
+
+            <!-- Save -->
+            <div class="save-row">
+              <button class="btn-save" id="save-btn-${id}" onclick="saveNotes('${id}','prelim-construction')">Save Notes</button>
+              <span class="save-msg" id="save-msg-${id}"></span>
+            </div>
+
+          </div>
+          ${prevSection(id)}
+        </div>`;
+    }
+
+    // ── CONSTRUCTION card ─────────────────────────────────────────────────────
+    function buildConstrCard(p) {
+      const id = p.id;
+
+      return `
+        <div class="proj-card" id="card-${id}">
+          <div class="proj-header">
+            <div class="proj-header-left">
+              <div class="proj-code-line">
+                <span class="proj-code">${esc(p.projectCode||"—")}</span>
+                ${p.projectType ? `<span class="proj-type">${esc(p.projectType)}</span>` : ""}
+                <span class="rb-flag" id="rb-flag-${id}">⚠ Roadblock</span>
+              </div>
+              <div class="proj-address">${esc(p.projectAddress||"—")}</div>
+            </div>
+            <div class="proj-header-right">
+              <div class="proj-meta"><strong>${esc(supervisorName(p.supervisorId))}</strong></div>
+              <div class="proj-meta">${fmtCurrency(p.contractValueGST)}</div>
+              ${p.currentStage ? `<span class="stage-badge">${esc(p.currentStage)}</span>` : ""}
+              <a class="btn-detail" href="project-detail.html?projectId=${id}">Full Detail ↗</a>
+            </div>
+          </div>
+          <div class="proj-body">
+
+            <!-- Stage Claims -->
+            <div class="sub-card">
+              <div class="sub-label">Stage Claims</div>
+              <div class="sub-body">
+                <div class="stage-row">
+                  <div class="stage-row-label"><span class="lock-icon">🔒</span> Previous Claim</div>
+                  <div class="stage-row-content">
+                    <span class="stage-value">${esc(p.currentStage||"—")}</span>
+                  </div>
+                </div>
+                <div class="stage-row">
+                  <div class="stage-row-label">Next Claim</div>
+                  <div class="stage-row-content" id="next-claim-content-${id}">
+                    <span class="spinner-dark"></span> Loading…
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Supervisor Update -->
+            <div class="sub-card">
+              <div class="sub-label">Supervisor Update</div>
+              <div class="sub-body">
+                <textarea class="notes-textarea" id="sup-update-${id}"
+                  placeholder="Construction progress this week…"></textarea>
+              </div>
+            </div>
+
+            <!-- Roadblock -->
+            <div class="sub-card">
+              <div class="sub-label">Roadblock</div>
+              <div class="sub-body">
+                <textarea class="notes-textarea" id="roadblock-${id}"
+                  placeholder="Issues or blockers…"
+                  oninput="updateRoadblockFlag('${id}',this.value)"></textarea>
+              </div>
+            </div>
+
+            <!-- Variations -->
+            <div class="sub-card">
+              <div class="sub-label">
+                <span>Variations / Discussion Items</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <button class="show-resolved-btn" id="show-res-btn-${id}"
+                    onclick="toggleShowResolved('${id}')">Show resolved</button>
+                  <button class="btn-gold-sm" onclick="toggleAddDisc('${id}')">+ Add</button>
+                </div>
+              </div>
+              <div class="sub-body">
+                <div id="disc-list-${id}">
+                  <div class="disc-empty"><span class="spinner-dark"></span> Loading…</div>
+                </div>
+                <div class="disc-add-form" id="disc-add-${id}">
+                  <div class="form-row">
+                    <div class="form-group grow">
+                      <div class="form-label">Description <span style="color:#B7B09C">*</span></div>
+                      <input type="text" class="form-input" id="disc-desc-${id}" placeholder="What needs to be discussed?" />
+                    </div>
+                    <div class="form-group">
+                      <div class="form-label">Status</div>
+                      <div class="select-wrap">
+                        <select class="field-select" id="disc-status-${id}">
+                          <option>Discussing</option>
+                          <option>Pending Client</option>
+                          <option>Resolved</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:8px;align-items:center">
+                    <button class="btn-gold-sm" onclick="addDiscItem('${id}')">Save Item</button>
+                    <button class="btn-cancel-sm" onclick="toggleAddDisc('${id}')">Cancel</button>
+                    <span class="inline-msg" id="disc-msg-${id}"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Team Updates -->
+            <div class="sub-card">
+              <div class="sub-label">Team Updates</div>
+              <div class="sub-body">
+                <textarea class="notes-textarea" id="team-updates-${id}"
+                  placeholder="Any other updates from the team…"></textarea>
+              </div>
+            </div>
+
+            <!-- Save -->
+            <div class="save-row">
+              <button class="btn-save" id="save-btn-${id}" onclick="saveNotes('${id}','construction')">Save Notes</button>
+              <span class="save-msg" id="save-msg-${id}"></span>
+            </div>
+
+          </div>
+          ${prevSection(id)}
+        </div>`;
+    }
+
+    // ── Supervisor edit ───────────────────────────────────────────────────────
+    window.toggleSupEdit = function(id) {
+      document.getElementById(`sup-edit-${id}`)?.classList.toggle("open");
+    };
+    window.saveSupervisor = async function(id) {
+      const sel = document.getElementById(`sup-sel-${id}`);
+      const ind = document.getElementById(`sup-ind-${id}`);
+      if (!sel) return;
+      const newId = sel.value;
+      try {
+        await updateDoc(doc(db, "projects", id), { supervisorId: newId, updatedAt: serverTimestamp() });
+        const p = allProjects.find(x => x.id === id);
+        if (p) p.supervisorId = newId;
+        const nameEl = document.getElementById(`sup-name-${id}`);
+        if (nameEl) nameEl.textContent = supervisorName(newId);
+        document.getElementById(`sup-edit-${id}`)?.classList.remove("open");
+        if (ind) { ind.classList.add("show"); setTimeout(() => ind.classList.remove("show"), 2000); }
+      } catch (err) { alert("Could not save supervisor: " + err.message); }
+    };
+
+    // ── Inline date save ──────────────────────────────────────────────────────
+    window.saveProjectDate = async function(projId, field, value, indicatorId) {
+      try {
+        await updateDoc(doc(db, "projects", projId), { [field]: value, updatedAt: serverTimestamp() });
+        const p = allProjects.find(x => x.id === projId);
+        if (p) p[field] = value;
+        const ind = document.getElementById(indicatorId);
+        if (ind) { ind.classList.add("show"); setTimeout(() => ind.classList.remove("show"), 2000); }
+      } catch (err) { alert("Could not save date: " + err.message); }
+    };
+
+    // ── Record Construction Contract ──────────────────────────────────────────
+    window.toggleContractPanel = function(id) {
+      document.getElementById(`contract-panel-${id}`)?.classList.toggle("open");
+    };
+    window.confirmContract = async function(id) {
+      const dateVal = document.getElementById(`pcf-cdate-${id}`)?.value;
+      const valStr  = document.getElementById(`pcf-cval-${id}`)?.value;
+      const btn     = document.getElementById(`pcf-cbtn-${id}`);
+      const errEl   = document.getElementById(`pcf-cerr-${id}`);
+      const msgEl   = document.getElementById(`pcf-cmsg-${id}`);
+      if (!dateVal) { errEl.textContent="Enter contract date."; errEl.style.display="inline"; return; }
+      if (!valStr)  { errEl.textContent="Enter contract value."; errEl.style.display="inline"; return; }
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+      try {
+        const gst = parseFloat(valStr);
+        await updateDoc(doc(db, "projects", id), {
+          contractDate:       dateVal,
+          contractValueGST:   gst,
+          contractValueExGST: gst / 1.1,
+          projectPhase:       "Construction",
+          updatedAt:          serverTimestamp()
+        });
+        msgEl.textContent = "✓ Moved to Construction";
+        msgEl.style.display = "inline";
+        // Move project in local array and re-render
+        const p = allProjects.find(x => x.id === id);
+        if (p) {
+          p.contractDate = dateVal;
+          p.contractValueGST = gst;
+          p.projectPhase = "Construction";
+          p._phase       = derivePhase(p);
+        }
+        setTimeout(() => { renderBoard(); }, 1200);
+      } catch (err) {
+        btn.disabled = false; btn.innerHTML = "Confirm — Move to Construction";
+        errEl.textContent = "Failed: " + err.message; errEl.style.display = "inline";
+      }
+    };
+
+    // ── Next Claim (from claimschedule) ───────────────────────────────────────
+    async function loadClaimScheduleForProject(projId) {
+      const container = document.getElementById(`next-claim-content-${projId}`);
+      if (!container) return;
+      try {
+        const snap = await getDocs(
+          query(collection(db, "projects", projId, "claimschedule"), orderBy("claimNumber","asc"))
+        );
+        if (snap.empty) {
+          container.innerHTML = `<span style="font-size:12px;color:#6B7280">No claim schedule —
+            <a href="project-detail.html?projectId=${projId}" style="color:#B7B09C">Set up in Project Detail ↗</a></span>`;
+          return;
+        }
+        const claims = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const next   = claims.find(cl => cl.status === "Scheduled" || !cl.actualIssueDate);
+        if (!next) {
+          container.innerHTML = `<span style="font-size:12px;color:#2D6A4F;font-weight:600">✓ All claims issued — nearing completion</span>`;
+          return;
+        }
+        nextClaimDocIds[projId] = next.id;
+        container.innerHTML =
+          `<span class="stage-value" style="min-width:130px">${esc(next.claimName||"—")}</span>
+           <input type="date" class="date-input" id="ns-date-${projId}" value="${next.plannedIssueDate||""}"
+             onchange="saveClaimDate('${projId}',this.value)" />
+           <span class="save-ind" id="ns-ind-${projId}">✓ Saved</span>`;
+      } catch (err) {
+        container.innerHTML = `<span style="font-size:12px;color:#9B2335">Failed: ${err.message}</span>`;
+      }
+    }
+
+    window.saveClaimDate = async function(projId, dateValue) {
+      const claimDocId = nextClaimDocIds[projId];
+      if (!claimDocId) return;
+      try {
+        await updateDoc(doc(db, "projects", projId, "claimschedule", claimDocId),
+          { plannedIssueDate: dateValue, updatedAt: serverTimestamp() });
+        const ind = document.getElementById(`ns-ind-${projId}`);
+        if (ind) { ind.classList.add("show"); setTimeout(() => ind.classList.remove("show"), 2000); }
+      } catch (err) { alert("Could not save date: " + err.message); }
+    };
+
+    // ── Roadblock flag ────────────────────────────────────────────────────────
+    window.updateRoadblockFlag = function(id, val) {
+      document.getElementById(`rb-flag-${id}`)?.classList.toggle("show", val.trim().length > 0);
+    };
+
+    // ── Variations ────────────────────────────────────────────────────────────
+    window.toggleAddDisc = function(id) {
+      document.getElementById(`disc-add-${id}`)?.classList.toggle("open");
+    };
+    window.toggleShowResolved = function(id) {
+      showResolvedMap[id] = !showResolvedMap[id];
+      const btn = document.getElementById(`show-res-btn-${id}`);
+      if (btn) btn.textContent = showResolvedMap[id] ? "Hide resolved" : "Show resolved";
+      loadVariations(id);
+    };
+
+    async function loadVariations(projId) {
+      const el = document.getElementById(`disc-list-${projId}`);
+      if (!el) return;
+      try {
+        const snap = await getDocs(
+          query(collection(db, "projects", projId, "variations"), orderBy("createdAt","asc"))
+        );
+        if (snap.empty) { el.innerHTML = `<div class="disc-empty">No items yet.</div>`; return; }
+        const showResolved = showResolvedMap[projId] || false;
+        const visible = snap.docs.filter(d => showResolved || d.data().status !== "Resolved");
+        const hiddenCount = snap.docs.length - visible.length;
+        if (visible.length === 0) {
+          el.innerHTML = `<div class="disc-empty">No open items.${hiddenCount>0?` <button class="show-resolved-btn" onclick="toggleShowResolved('${projId}')">Show ${hiddenCount} resolved</button>`:""}</div>`;
+          return;
+        }
+        const statCls = s => ({"Discussing":"disc-discussing","Pending Client":"disc-pending","Resolved":"disc-resolved"}[s]||"disc-discussing");
+        el.innerHTML = visible.map(d => {
+          const v = d.data(); const vid = d.id;
+          return `
+            <div class="disc-item ${v.status==="Resolved"?"resolved":""}" id="ditem-${projId}-${vid}">
+              <div class="disc-desc" id="ddesc-${projId}-${vid}">${esc(v.description||"—")}</div>
+              <span class="disc-status ${statCls(v.status)}">${v.status||"Discussing"}</span>
+              <div class="disc-btns">
+                <button class="btn-xs" onclick="openEditDisc('${projId}','${vid}','${esc(v.description||"")}','${esc(v.status||"Discussing")}')">Edit</button>
+                <button class="btn-xs btn-xs-danger" onclick="deleteDiscItem('${projId}','${vid}')">✕</button>
+              </div>
+            </div>
+            <div class="disc-edit-row" id="dedit-${projId}-${vid}">
+              <input type="text" class="form-input" id="dedit-desc-${projId}-${vid}" style="flex:1" />
+              <div class="select-wrap">
+                <select class="field-select" id="dedit-status-${projId}-${vid}">
+                  <option>Discussing</option><option>Pending Client</option><option>Resolved</option>
+                </select>
+              </div>
+              <button class="btn-gold-sm" onclick="saveEditDisc('${projId}','${vid}')">Save</button>
+              <button class="btn-cancel-sm" onclick="closeEditDisc('${projId}','${vid}')">Cancel</button>
+            </div>`;
+        }).join("");
+      } catch (err) {
+        el.innerHTML = `<div class="disc-empty" style="color:#9B2335">Failed: ${err.message}</div>`;
+      }
+    }
+
+    window.addDiscItem = async function(projId) {
+      const desc = document.getElementById(`disc-desc-${projId}`)?.value.trim();
+      const status = document.getElementById(`disc-status-${projId}`)?.value || "Discussing";
+      const msgEl = document.getElementById(`disc-msg-${projId}`);
+      if (!desc) { msgEl.textContent="Description required."; msgEl.className="inline-msg show inline-error"; return; }
+      try {
+        await addDoc(collection(db,"projects",projId,"variations"), { description:desc, status, createdAt:serverTimestamp(), createdBy:currentUser.uid });
+        document.getElementById(`disc-desc-${projId}`).value = "";
+        document.getElementById(`disc-add-${projId}`)?.classList.remove("open");
+        msgEl.className = "inline-msg";
+        await loadVariations(projId);
+      } catch (err) { msgEl.textContent="Failed: "+err.message; msgEl.className="inline-msg show inline-error"; }
+    };
+    window.openEditDisc = function(projId, vid, desc, status) {
+      const editRow = document.getElementById(`dedit-${projId}-${vid}`);
+      if (!editRow) return;
+      document.getElementById(`dedit-desc-${projId}-${vid}`).value = desc;
+      document.getElementById(`dedit-status-${projId}-${vid}`).value = status;
+      editRow.classList.add("open");
+    };
+    window.closeEditDisc = function(projId, vid) {
+      document.getElementById(`dedit-${projId}-${vid}`)?.classList.remove("open");
+    };
+    window.saveEditDisc = async function(projId, vid) {
+      const desc = document.getElementById(`dedit-desc-${projId}-${vid}`)?.value.trim();
+      const status = document.getElementById(`dedit-status-${projId}-${vid}`)?.value;
+      if (!desc) return;
+      try {
+        await updateDoc(doc(db,"projects",projId,"variations",vid), { description:desc, status });
+        closeEditDisc(projId, vid);
+        await loadVariations(projId);
+      } catch (err) { alert("Could not save: "+err.message); }
+    };
+    window.deleteDiscItem = async function(projId, vid) {
+      if (!confirm("Delete this item?")) return;
+      try {
+        await deleteDoc(doc(db,"projects",projId,"variations",vid));
+        await loadVariations(projId);
+      } catch (err) { alert("Could not delete: "+err.message); }
+    };
+
+    // ── Load today's saved notes into fields ──────────────────────────────────
+    async function loadTodayNotes(projId, phase) {
+      try {
+        const snap = await getDoc(doc(db, "projects", projId, "meetingnotes", meetingDate));
+        if (!snap.exists()) return;
+        const n = snap.data();
+        const setTA = (id, val) => { const el = document.getElementById(id); if (el) el.value = val||""; };
+        if (phase === "Preliminaries") {
+          setTA(`prelim-update-${projId}`, n.prelimUpdate);
+        } else if (phase === "Construction") {
+          setTA(`sup-update-${projId}`, n.supervisorUpdate);
+          setTA(`roadblock-${projId}`, n.roadblock);
+          setTA(`team-updates-${projId}`, n.teamUpdates);
+          if (n.roadblock?.trim()) document.getElementById(`rb-flag-${projId}`)?.classList.add("show");
+          if (n.nextClaimDate) {
+            const di = document.getElementById(`ns-date-${projId}`);
+            if (di) di.value = n.nextClaimDate;
+          }
+        }
+      } catch (err) { /* non-fatal */ }
+    }
+
+    // ── Save notes ────────────────────────────────────────────────────────────
+    window.saveNotes = async function(projId, phase) {
+      const proj  = allProjects.find(p => p.id === projId);
+      const btnEl = document.getElementById(`save-btn-${projId}`);
+      const msgEl = document.getElementById(`save-msg-${projId}`);
+      if (!btnEl || !msgEl) return;
+      btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner"></span>';
+      const readTA = id => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+
+      let data = { meetingDate, phase, savedBy: currentUser.uid, savedAt: serverTimestamp() };
+      if (phase === "prelim-construction") {
+        data.prelimUpdate = readTA(`prelim-update-${projId}`);
+        data.supervisorId = proj?.supervisorId || "";
+      } else if (phase === "construction") {
+        data.supervisorUpdate = readTA(`sup-update-${projId}`);
+        data.roadblock        = readTA(`roadblock-${projId}`);
+        data.teamUpdates      = readTA(`team-updates-${projId}`);
+        data.nextClaimDate    = document.getElementById(`ns-date-${projId}`)?.value || "";
+        document.getElementById(`rb-flag-${projId}`)?.classList.toggle("show", data.roadblock.length > 0);
+      }
+
+      try {
+        await setDoc(doc(db, "projects", projId, "meetingnotes", meetingDate), data);
+        msgEl.textContent = `Saved — ${proj?.projectCode||projId} · ${fmtDate(meetingDate)}`;
+        msgEl.className = "save-msg show save-success";
+        setTimeout(() => { msgEl.className = "save-msg"; msgEl.textContent = ""; }, 5000);
+        await loadPrevNotes(projId);
+        const prevBody = document.getElementById(`prev-body-${projId}`);
+        const prevChev = document.getElementById(`prev-chev-${projId}`);
+        if (prevBody && !prevBody.classList.contains("open")) {
+          prevBody.classList.add("open");
+          if (prevChev) prevChev.textContent = "▴";
+        }
+      } catch (err) {
+        msgEl.textContent = "Save failed: " + err.message;
+        msgEl.className = "save-msg show save-error";
+      } finally {
+        btnEl.disabled = false; btnEl.innerHTML = "Save Notes";
+      }
+    };
+
+    // ── Previous notes ────────────────────────────────────────────────────────
+    async function loadPrevNotes(projId) {
+      const el = document.getElementById(`prev-content-${projId}`);
+      if (!el) return;
+      try {
+        const snap = await getDocs(query(
+          collection(db, "projects", projId, "meetingnotes"),
+          orderBy("meetingDate","desc"), limit(3)
+        ));
+        if (snap.empty) { el.innerHTML = `<div style="color:#6B7280;font-size:13px;padding-top:10px">No notes saved yet.</div>`; return; }
+        let html = "";
+        snap.forEach(d => {
+          const n = d.data(); const docId = d.id;
+          const proj = allProjects.find(p => p.id === projId);
+          const code = proj?.projectCode || projId;
+          const noteText = n.prelimUpdate || n.supervisorUpdate || "";
+          const isDir = currentRole === "director";
+          html += `
+            <div class="prev-note" id="prev-note-${projId}-${docId}">
+              <div class="prev-date" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+                <span>${fmtDate(n.meetingDate)} <span style="font-size:11px;color:#6B7280;text-transform:uppercase">${n.phase||""}</span></span>
+                ${isDir ? `<button class="btn-xs btn-xs-danger" onclick="deletePrevNote('${projId}','${docId}','${esc(code)}','${esc(n.meetingDate||docId)}')">Delete</button>` : ""}
+              </div>
+              <span class="inline-msg" id="prev-del-msg-${projId}-${docId}"></span>
+              ${noteText ? `<div class="prev-field-label">${n.phase==="prelim-construction"?"Prelim Update":"Supervisor Update"}</div><div class="prev-field-value">${esc(noteText)}</div>` : ""}
+              ${n.roadblock ? `<div class="prev-field-label" style="margin-top:6px">Roadblock</div><div class="prev-field-value" style="color:#9B2335">${esc(n.roadblock)}</div>` : ""}
+              ${n.nextClaimDate ? `<div class="prev-field-label" style="margin-top:6px">Next Claim Date</div><div class="prev-field-value">${fmtDate(n.nextClaimDate)}</div>` : ""}
+            </div>`;
+        });
+        el.innerHTML = html;
+      } catch (err) {
+        el.innerHTML = `<div style="color:#9B2335;font-size:13px;padding-top:10px">Failed: ${err.message}</div>`;
+      }
+    }
+
+    window.deletePrevNote = async function(projId, docId, code, noteDate) {
+      const displayDate = fmtDate(noteDate);
+      if (!confirm(`Delete meeting notes for ${code} dated ${displayDate}? This cannot be undone.`)) return;
+      try {
+        await deleteDoc(doc(db, "projects", projId, "meetingnotes", docId));
+        document.getElementById(`prev-note-${projId}-${docId}`)?.remove();
+        const container = document.getElementById(`prev-content-${projId}`);
+        if (container && container.children.length === 0)
+          container.innerHTML = `<div style="color:#6B7280;font-size:13px;padding-top:10px">No notes saved yet.</div>`;
+      } catch (err) {
+        const msgEl = document.getElementById(`prev-del-msg-${projId}-${docId}`);
+        if (msgEl) { msgEl.textContent="Delete failed: "+err.message; msgEl.className="inline-msg show inline-error"; }
+      }
+    };
+
+    // ── Meeting date picker ───────────────────────────────────────────────────
+    document.getElementById("meeting-date-input").addEventListener("change", async function() {
+      meetingDate = this.value;
+      document.getElementById("meeting-date-display").textContent = fmtDate(meetingDate);
+      await Promise.all(allProjects.map(p => loadTodayNotes(p.id, p._phase)));
+    });
+
+    // ── Nav + auth ────────────────────────────────────────────────────────────
+    initNav({
+      pageId:       "meeting-notes",
+      allowedRoles: [],
+      onReady: async (user, role) => {
+        currentUser = user;
+        currentRole = role;
+        document.getElementById("meeting-date-input").value  = meetingDate;
+        document.getElementById("meeting-date-display").textContent = fmtDate(meetingDate);
+        try {
+          await loadAll();
+        } catch (err) {
+          document.getElementById("board").innerHTML =
+            `<div style="color:#9B2335;padding:24px;font-size:14px">Failed to load: ${err.message}</div>`;
+        }
+      }
+    });
+  </script>
+</body>
+</html>

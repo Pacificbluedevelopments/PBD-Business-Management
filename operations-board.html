@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<!--
+  operations-board.html
+  Pacific Blue Developments — Business Management Application
+  ─────────────────────────────────────────────────────────────
+  Forward-looking horizon board showing all active projects organised
+  by when their next key milestone falls. Used in weekly meetings.
+
+  Access control:
+    - Directors: see all projects, can edit all fields
+    - Supervisors: see all projects, can edit stage fields only
+    - Sales and Accounts: see all projects, read only
+    - Reads role from Firestore userroles/{uid}
+
+  Column logic:
+    - Construction projects: use nextStageDate
+    - Preliminaries projects: use preliminaryTargetDate
+    - Sales phase projects: use expectedCommencementMonth
+    - No date set on active project: Needs Attention
+    - Past date: Needs Attention
+
+  Conventions:
+    - Dates stored as ISO YYYY-MM-DD
+    - Imports Firebase from ./firebase-config.js
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Operations Board — Pacific Blue Developments</title>
+
+  <style>
+    :root {
+      --navy:         #1B2A3B;
+      --navy-light:   #243548;
+      --navy-dark:    #111d2b;
+      --gold:         #B8860B;
+      --gold-light:   #d4a017;
+      --gold-pale:    #fdf6e3;
+      --white:        #ffffff;
+      --off-white:    #f5f6f8;
+      --border:       #dde1e7;
+      --text:         #1B2A3B;
+      --text-mid:     #4a5568;
+      --text-muted:   #6b7a8d;
+
+      /* horizon column headers */
+      --col-this:     #1B2A3B;
+      --col-next:     #2c3e6b;
+      --col-soon:     #4a5568;
+      --col-beyond:   #718096;
+      --col-attn:     #9b2335;
+
+      /* urgency */
+      --urgent:       #c0392b;
+      --urgent-bg:    #fdf0ef;
+      --urgent-border:#f1b9b5;
+      --amber:        #b7770d;
+      --amber-bg:     #fff8e6;
+      --amber-border: #f6d860;
+      --safe:         #1a7a4a;
+      --safe-bg:      #eafaf2;
+      --safe-border:  #b2dfcd;
+
+      --radius:       6px;
+      --radius-lg:    10px;
+      --radius-card:  8px;
+      --shadow-sm:    0 1px 3px rgba(0,0,0,0.06);
+      --shadow:       0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg:    0 12px 32px rgba(0,0,0,0.16);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--off-white);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      background: var(--navy); color: var(--white);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px; height: 60px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      position: sticky; top: 0; z-index: 300;
+    }
+    .topbar-brand { display: flex; align-items: center; gap: 12px; }
+    .topbar-logo {
+      width: 34px; height: 34px; background: var(--gold); border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 15px; color: var(--navy); flex-shrink: 0;
+    }
+    .topbar-title  { font-size: 16px; font-weight: 700; }
+    .topbar-subtitle { font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 0.8px; text-transform: uppercase; }
+    .topbar-right  { display: flex; align-items: center; gap: 12px; }
+    .topbar-user   { font-size: 12px; color: rgba(255,255,255,0.7); }
+    .btn-new-lead {
+      background: var(--gold); border: none; color: var(--navy);
+      font-family: Arial, sans-serif; font-size: 12px; font-weight: 700;
+      padding: 6px 14px; border-radius: var(--radius); cursor: pointer;
+      text-decoration: none; display: inline-flex; align-items: center;
+      gap: 5px; transition: background 0.2s;
+    }
+    .btn-new-lead:hover { background: var(--gold-light); }
+    .btn-signout {
+      background: transparent; border: 1px solid rgba(255,255,255,0.25);
+      color: var(--white); font-family: Arial, sans-serif; font-size: 12px;
+      padding: 5px 12px; border-radius: var(--radius); cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-signout:hover { background: rgba(255,255,255,0.1); }
+
+    /* ── Page wrapper ── */
+    .page-wrapper { padding: 24px 20px 60px; max-width: 100%; }
+
+    /* ── Summary cards ── */
+    .summary-bar {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 14px; margin-bottom: 20px;
+    }
+    .summary-card {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
+    }
+    .summary-card-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+    }
+    .summary-card-value {
+      font-size: 22px; font-weight: 700; color: var(--navy); line-height: 1.1;
+    }
+    .summary-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 14px 18px; margin-bottom: 14px;
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+      box-shadow: var(--shadow-sm);
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 130px; }
+    .filter-group.search-group { flex: 1; min-width: 180px; }
+    .filter-group label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+      text-transform: uppercase; color: var(--text-muted);
+    }
+    .filter-group input,
+    .filter-group select {
+      font-family: Arial, sans-serif; font-size: 13px; color: var(--text);
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 6px 10px;
+      transition: border-color 0.2s; appearance: none; width: 100%;
+    }
+    .filter-group input:focus,
+    .filter-group select:focus {
+      outline: none; border-color: var(--navy);
+      box-shadow: 0 0 0 3px rgba(27,42,59,0.08);
+    }
+    .filter-group input::placeholder { color: var(--text-muted); }
+    .select-wrap { position: relative; }
+    .select-wrap::after {
+      content: "▾"; position: absolute; right: 8px; top: 50%;
+      transform: translateY(-50%); color: var(--text-muted);
+      pointer-events: none; font-size: 10px;
+    }
+
+    /* ── Show completed toggle ── */
+    .toggle-label {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: var(--text-mid); cursor: pointer;
+      align-self: flex-end; padding-bottom: 7px; white-space: nowrap;
+    }
+    .toggle-label input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; }
+
+    .btn-clear-filters {
+      font-family: Arial, sans-serif; font-size: 12px; font-weight: 700;
+      padding: 6px 12px; background: transparent;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-mid); cursor: pointer;
+      transition: border-color 0.2s, color 0.2s; white-space: nowrap; align-self: flex-end;
+    }
+    .btn-clear-filters:hover { border-color: var(--navy); color: var(--navy); }
+
+    /* ── Board status line ── */
+    .board-status {
+      font-size: 12px; color: var(--text-muted); margin-bottom: 14px; min-height: 18px;
+    }
+    .board-status strong { color: var(--navy); }
+
+    /* ── Horizon board layout ── */
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    /* ── Column ── */
+    .column { border-radius: var(--radius-lg); overflow: hidden; min-height: 200px; }
+
+    .column-header {
+      padding: 12px 14px; color: var(--white);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .col-this   .column-header { background: var(--col-this); border-bottom: 3px solid var(--gold); }
+    .col-next   .column-header { background: var(--col-next); }
+    .col-soon   .column-header { background: var(--col-soon); }
+    .col-beyond .column-header { background: var(--col-beyond); }
+    .col-attn   .column-header { background: var(--col-attn); }
+
+    .col-title { font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+    .col-count {
+      font-size: 11px; font-weight: 700;
+      background: rgba(255,255,255,0.15); border-radius: 20px; padding: 2px 8px;
+    }
+
+    .column-body {
+      background: rgba(0,0,0,0.03);
+      border: 1px solid var(--border); border-top: none;
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+      padding: 10px; min-height: 160px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    /* ── Empty state in column ── */
+    .column-empty {
+      text-align: center; padding: 28px 12px;
+      color: var(--text-muted); font-size: 12px; line-height: 1.5;
+      flex: 1;
+    }
+    .column-empty-icon { font-size: 20px; margin-bottom: 6px; opacity: 0.4; }
+
+    /* ── Project card ── */
+    .project-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      border-left: 4px solid var(--border);
+      padding: 12px 12px 10px;
+      cursor: pointer;
+      transition: box-shadow 0.15s, transform 0.1s;
+      position: relative;
+    }
+    .project-card:hover {
+      box-shadow: var(--shadow);
+      transform: translateY(-1px);
+    }
+    .project-card.urgency-urgent { border-left-color: var(--urgent); }
+    .project-card.urgency-amber  { border-left-color: var(--amber); }
+    .project-card.urgency-safe   { border-left-color: var(--safe); }
+    .project-card.selected       { box-shadow: 0 0 0 2px var(--gold); }
+
+    .card-top {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 6px; margin-bottom: 6px;
+    }
+    .card-code { font-size: 12px; font-weight: 700; color: var(--gold); }
+
+    .supervisor-badge {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--navy); color: var(--white);
+      font-size: 9px; font-weight: 700; display: flex;
+      align-items: center; justify-content: center;
+      flex-shrink: 0; letter-spacing: 0.3px;
+    }
+
+    .card-address {
+      font-size: 12px; font-weight: 600; color: var(--text);
+      line-height: 1.3; margin-bottom: 6px;
+    }
+
+    .card-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+    .card-badge {
+      display: inline-block; padding: 2px 7px; border-radius: 20px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.3px;
+      background: #e8eaed; color: var(--text-mid);
+    }
+    .card-badge.stage { background: #e8f4fd; color: #1565c0; }
+    .card-badge.phase-sales    { background: #e8f4fd; color: #1565c0; }
+    .card-badge.phase-prelim   { background: #fff8e6; color: #8a6000; }
+    .card-badge.phase-const    { background: #e8f5e9; color: #2e7d32; }
+    .card-badge.phase-hold     { background: #fce8e6; color: #c5221f; }
+    .card-badge.phase-complete { background: #e8eaed; color: #5f6368; }
+
+    .card-milestone {
+      font-size: 11px; color: var(--text-mid); margin-bottom: 6px; line-height: 1.4;
+    }
+    .card-milestone strong { color: var(--text); }
+
+    .card-footer {
+      display: flex; align-items: center; justify-content: space-between; gap: 4px;
+    }
+    .card-value { font-size: 12px; font-weight: 700; color: var(--navy); }
+
+    .days-chip {
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px;
+      white-space: nowrap;
+    }
+    .days-urgent { background: var(--urgent-bg); color: var(--urgent); border: 1px solid var(--urgent-border); }
+    .days-amber  { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-border); }
+    .days-safe   { background: var(--safe-bg);   color: var(--safe);   border: 1px solid var(--safe-border); }
+
+    /* ── Slide-out panel ── */
+    #panel-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+      z-index: 400; display: none; backdrop-filter: blur(2px);
+    }
+    #panel-overlay.show { display: block; }
+
+    #slide-panel {
+      position: fixed; top: 0; right: -500px; width: 480px; max-width: 95vw;
+      height: 100vh; background: var(--white);
+      box-shadow: var(--shadow-lg); z-index: 500;
+      display: flex; flex-direction: column;
+      transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+    }
+    #slide-panel.open { right: 0; }
+
+    .panel-header {
+      background: var(--navy); color: var(--white);
+      padding: 16px 20px; display: flex; align-items: center;
+      justify-content: space-between; flex-shrink: 0;
+    }
+    .panel-project-code { font-size: 11px; color: var(--gold); font-weight: 700; letter-spacing: 0.5px; }
+    .panel-project-addr { font-size: 14px; font-weight: 700; margin-top: 2px; }
+    .btn-close-panel {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); border: none; color: var(--white);
+      font-size: 16px; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .btn-close-panel:hover { background: rgba(255,255,255,0.25); }
+
+    .panel-body {
+      flex: 1; overflow-y: auto; padding: 20px;
+    }
+
+    /* Read-only info section */
+    .panel-info-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; margin-bottom: 20px;
+    }
+    .info-item { display: flex; flex-direction: column; gap: 3px; }
+    .info-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+    .info-value { font-size: 13px; font-weight: 600; color: var(--text); }
+
+    /* Panel section divider */
+    .panel-section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--gold); margin: 20px 0 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .panel-section-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+    /* Edit fields */
+    .panel-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+    .panel-field label {
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .panel-field input,
+    .panel-field select,
+    .panel-field textarea {
+      font-family: Arial, sans-serif; font-size: 13.5px; color: var(--text);
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 8px 10px;
+      transition: border-color 0.2s; appearance: none; width: 100%;
+    }
+    .panel-field input:focus,
+    .panel-field select:focus,
+    .panel-field textarea:focus {
+      outline: none; border-color: var(--navy);
+      box-shadow: 0 0 0 3px rgba(27,42,59,0.08);
+    }
+    .panel-field textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+    .panel-select-wrap { position: relative; }
+    .panel-select-wrap::after {
+      content: "▾"; position: absolute; right: 9px; top: 50%;
+      transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 10px;
+    }
+
+    /* Read-only notice for Sales/Accounts */
+    .readonly-notice {
+      background: var(--off-white); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 14px;
+      font-size: 12px; color: var(--text-muted); margin-bottom: 16px;
+      display: none;
+    }
+    .readonly-notice.show { display: block; }
+
+    .panel-footer {
+      padding: 14px 20px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+      background: var(--off-white);
+    }
+    .btn-panel-save {
+      font-family: Arial, sans-serif; font-size: 13px; font-weight: 700;
+      padding: 8px 22px; background: var(--navy); border: none;
+      border-radius: var(--radius); color: var(--white); cursor: pointer;
+      transition: background 0.15s; display: flex; align-items: center; gap: 7px;
+    }
+    .btn-panel-save:hover:not(:disabled) { background: var(--navy-light); }
+    .btn-panel-save:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-panel-cancel {
+      font-family: Arial, sans-serif; font-size: 13px; font-weight: 700;
+      padding: 8px 16px; background: transparent;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-mid); cursor: pointer; transition: border-color 0.15s;
+    }
+    .btn-panel-cancel:hover { border-color: var(--navy); color: var(--navy); }
+    .panel-save-msg { font-size: 12px; font-weight: 600; color: var(--safe); display: none; }
+    .panel-save-msg.show { display: inline; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2px solid rgba(27,42,59,0.15); border-top-color: var(--navy);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    .spinner-sm {
+      width: 13px; height: 13px;
+      border: 2px solid rgba(255,255,255,0.3); border-top-color: var(--white);
+      border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Loading overlay ── */
+    #loading-overlay {
+      position: fixed; inset: 0; background: var(--navy-dark);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; transition: opacity 0.3s;
+    }
+    #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+    .loading-text { color: var(--white); font-size: 15px; font-weight: 700; letter-spacing: 1px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 1100px) {
+      .board { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .board { grid-template-columns: repeat(2, 1fr); }
+      .summary-bar { grid-template-columns: 1fr 1fr; }
+      .topbar-user { display: none; }
+      #slide-panel { width: 100vw; }
+    }
+    @media (max-width: 480px) {
+      .board { grid-template-columns: 1fr; }
+      .summary-bar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading-overlay">
+    <div class="loading-text">PACIFIC BLUE</div>
+  </div>
+
+  <!-- Panel overlay -->
+  <div id="panel-overlay"></div>
+
+  <!-- Slide-out panel -->
+  <div id="slide-panel">
+    <div class="panel-header">
+      <div>
+        <div class="panel-project-code" id="panel-code"></div>
+        <div class="panel-project-addr" id="panel-addr"></div>
+      </div>
+      <button class="btn-close-panel" id="btn-close-panel">&#10005;</button>
+    </div>
+    <div class="panel-body" id="panel-body">
+      <!-- Populated dynamically -->
+    </div>
+    <div class="panel-footer" id="panel-footer">
+      <button class="btn-panel-save" id="btn-panel-save">Save Changes</button>
+      <button class="btn-panel-cancel" id="btn-panel-cancel">Cancel</button>
+      <span class="panel-save-msg" id="panel-save-msg">&#10003; Saved</span>
+    </div>
+  </div>
+
+  <!-- Topbar -->
+  <!-- Top navigation bar — populated by nav.js -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">PB</div>
+      <div>
+        <div class="topbar-title">Pacific Blue Developments</div>
+        <div class="topbar-subtitle">Operations Board</div>
+      </div>
+    </div>
+    <div id="nav-menu"></div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="topbar-user-email"></span>
+      <button class="btn-signout" id="btn-signout">Sign Out</button>
+    </div>
+  </header>
+
+  <main class="page-wrapper">
+
+    <!-- Summary cards -->
+    <div class="summary-bar">
+      <div class="summary-card">
+        <div class="summary-card-label">Total Active Projects</div>
+        <div class="summary-card-value" id="card-total">—</div>
+        <div class="summary-card-sub">projects on board</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-label">Milestones This Month</div>
+        <div class="summary-card-value" id="card-this-month">—</div>
+        <div class="summary-card-sub">due within 30 days</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-label">Total Pipeline Value</div>
+        <div class="summary-card-value" id="card-pipeline">—</div>
+        <div class="summary-card-sub">contract or estimated budget</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-label">Revenue This Month</div>
+        <div class="summary-card-value" id="card-revenue-month">—</div>
+        <div class="summary-card-sub">this month milestones</div>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <div class="filter-group search-group">
+        <label for="filter-search">Search</label>
+        <input type="text" id="filter-search" placeholder="Project code or address..." />
+      </div>
+      <div class="filter-group">
+        <label for="filter-supervisor">Supervisor</label>
+        <div class="select-wrap">
+          <select id="filter-supervisor">
+            <option value="">All</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-group">
+        <label for="filter-phase">Phase</label>
+        <div class="select-wrap">
+          <select id="filter-phase">
+            <option value="">All</option>
+            <option value="Sales">Sales</option>
+            <option value="Preliminaries">Preliminaries</option>
+            <option value="Construction">Construction</option>
+            <option value="On Hold">On Hold</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-group">
+        <label for="filter-type">Project Type</label>
+        <div class="select-wrap">
+          <select id="filter-type">
+            <option value="">All</option>
+            <option value="New Build">New Build</option>
+            <option value="KDRB">KDRB</option>
+            <option value="Duplex">Duplex</option>
+            <option value="Granny Flat">Granny Flat</option>
+            <option value="Renovation">Renovation</option>
+            <option value="Commercial">Commercial</option>
+            <option value="Extension">Extension</option>
+          </select>
+        </div>
+      </div>
+      <label class="toggle-label">
+        <input type="checkbox" id="toggle-completed" />
+        Show completed
+      </label>
+      <button class="btn-clear-filters" id="btn-clear-filters">Clear</button>
+    </div>
+
+    <!-- Board status -->
+    <div class="board-status" id="board-status"></div>
+
+    <!-- Horizon board -->
+    <div class="board" id="board">
+      <!-- Columns rendered by JS -->
+    </div>
+
+  </main>
+
+  <script type="module">
+
+    import { auth, db } from "./firebase-config.js";
+    import { initNav }    from "./nav.js";
+
+    import {
+      collection, doc, getDoc, getDocs, updateDoc,
+      query, orderBy, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── Stage sequence ──────────────────────────────────────────────────────
+    const STAGES = [
+      "Consult","Concept","Proposal","Prelim","Contract","Commence",
+      "Base","Frame","Enclosed","Fixing","Tile & Paint","Practical Completion"
+    ];
+
+    // ── DOM refs ────────────────────────────────────────────────────────────
+    const loadingOverlay  = document.getElementById("loading-overlay");
+    const topbarUserEmail = document.getElementById("topbar-user-email");
+    const btnSignOut      = document.getElementById("btn-signout");
+    const board           = document.getElementById("board");
+    const boardStatus     = document.getElementById("board-status");
+    const filterSearch    = document.getElementById("filter-search");
+    const filterSupervisor= document.getElementById("filter-supervisor");
+    const filterPhase     = document.getElementById("filter-phase");
+    const filterType      = document.getElementById("filter-type");
+    const toggleCompleted = document.getElementById("toggle-completed");
+    const btnClear        = document.getElementById("btn-clear-filters");
+    const panelOverlay    = document.getElementById("panel-overlay");
+    const slidePanel      = document.getElementById("slide-panel");
+    const panelCode       = document.getElementById("panel-code");
+    const panelAddr       = document.getElementById("panel-addr");
+    const panelBody       = document.getElementById("panel-body");
+    const panelFooter     = document.getElementById("panel-footer");
+    const btnClosePanel   = document.getElementById("btn-close-panel");
+    const btnPanelSave    = document.getElementById("btn-panel-save");
+    const btnPanelCancel  = document.getElementById("btn-panel-cancel");
+    const panelSaveMsg    = document.getElementById("panel-save-msg");
+
+    // ── State ───────────────────────────────────────────────────────────────
+    let allProjects     = [];
+    let supervisorMap   = {};  // uid → {firstName, lastName}
+    let currentUserRole = null;
+    let currentUserId   = null;
+    let openProjectId   = null;
+    const TODAY         = new Date();
+    TODAY.setHours(0,0,0,0);
+
+    // ── Nav + auth — handled by nav.js ──────────────────────────────────────
+    initNav({
+      pageId:       "operations-board",
+      allowedRoles: [],
+      onReady: async (user, role) => {
+        currentUserRole = role;
+        currentUserId   = user.uid;
+        await Promise.all([loadSupervisors(), loadProjects()]);
+      }
+    });
+
+    // ── Load supervisors for filter dropdown and badge initials ─────────────
+    // Only active staff members are loaded — inactive staff are excluded
+    // from dropdowns across the application.
+    async function loadSupervisors() {
+      try {
+        const snap = await getDocs(collection(db, "staffmembers"));
+        snap.forEach(d => {
+          const s = d.data();
+          // Store all staff in supervisorMap (for badge display on existing records)
+          supervisorMap[d.id] = s;
+          // Only add ACTIVE supervisors to the filter dropdown
+          if ((s.role === "Supervisor" || s.role === "supervisor") && s.isActive !== false) {
+            const opt = document.createElement("option");
+            opt.value       = d.id;
+            opt.textContent = ((s.firstName||"") + " " + (s.lastName||"")).trim();
+            filterSupervisor.appendChild(opt);
+          }
+        });
+      } catch (e) { /* non-fatal */ }
+    }
+
+    // ── Load all projects ───────────────────────────────────────────────────
+    async function loadProjects() {
+      try {
+        const q    = query(collection(db, "projects"), orderBy("projectCode", "asc"));
+        const snap = await getDocs(q);
+        allProjects = [];
+        snap.forEach(d => allProjects.push({ id: d.id, ...d.data() }));
+        renderBoard();
+      } catch (err) {
+        board.innerHTML = `<p style="color:var(--urgent);padding:20px">Failed to load projects: ${err.message}</p>`;
+      }
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+
+    function formatCurrency(val) {
+      if (!val && val !== 0) return "—";
+      return "$" + Number(val).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+    }
+
+    function formatDate(iso) {
+      if (!iso) return "—";
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const d = new Date(iso + "T00:00:00");
+      return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear();
+    }
+
+    function formatMonthYear(val) {
+      if (!val) return "—";
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const parts  = val.split("-");
+      if (parts.length < 2) return val;
+      return months[parseInt(parts[1]) - 1] + " " + parts[0];
+    }
+
+    // Days difference from today (negative = overdue)
+    function daysFromToday(iso) {
+      if (!iso) return null;
+      const d = new Date(iso + "T00:00:00");
+      d.setHours(0,0,0,0);
+      return Math.round((d - TODAY) / 86400000);
+    }
+
+    // For expectedCommencementMonth (YYYY-MM), compute days to start of that month
+    function daysFromTodayMonth(val) {
+      if (!val) return null;
+      const d = new Date(val + "-01T00:00:00");
+      d.setHours(0,0,0,0);
+      return Math.round((d - TODAY) / 86400000);
+    }
+
+    function supervisorInitials(uid) {
+      if (!uid || !supervisorMap[uid]) return "—";
+      const s = supervisorMap[uid];
+      return ((s.firstName||"").charAt(0) + (s.lastName||"").charAt(0)).toUpperCase();
+    }
+
+    // ── Determine milestone date and label for a project ────────────────────
+    function getMilestone(proj) {
+      const phase = proj.projectPhase || "";
+      const stage = proj.currentStage || "";
+
+      // Construction: use nextStageDate
+      if (phase === "Construction" && stage) {
+        if (proj.nextStageDate) {
+          return {
+            label: "Next stage: " + (proj.nextStage || "—"),
+            date:  proj.nextStageDate,
+            days:  daysFromToday(proj.nextStageDate),
+            type:  "date"
+          };
+        }
+        return { label: "No next stage date set", date: null, days: null, type: "none" };
+      }
+
+      // Preliminaries: use preliminaryTargetDate
+      if (phase === "Preliminaries") {
+        if (proj.preliminaryTargetDate) {
+          return {
+            label: "Prelim target",
+            date:  proj.preliminaryTargetDate,
+            days:  daysFromToday(proj.preliminaryTargetDate),
+            type:  "date"
+          };
+        }
+        return { label: "No preliminary date set", date: null, days: null, type: "none" };
+      }
+
+      // Sales: use expectedCommencementMonth
+      if (phase === "Sales") {
+        if (proj.expectedCommencementMonth) {
+          return {
+            label: "Expected commencement",
+            date:  proj.expectedCommencementMonth,
+            days:  daysFromTodayMonth(proj.expectedCommencementMonth),
+            type:  "month"
+          };
+        }
+        return { label: "No commencement date set", date: null, days: null, type: "none" };
+      }
+
+      // On Hold, Cancelled, Completed, unknown
+      return { label: "—", date: null, days: null, type: "none" };
+    }
+
+    // ── Assign project to horizon column ────────────────────────────────────
+    // Returns: "this" | "next" | "soon" | "beyond" | "attention"
+    function getColumn(proj, milestone) {
+      const phase = proj.projectPhase || "";
+
+      // Skip completed/cancelled in "needs attention" — they go nowhere unless shown
+      if (phase === "Completed" || phase === "Cancelled") return "beyond";
+
+      const days = milestone.days;
+
+      // No date on active project → needs attention
+      if (days === null) return "attention";
+
+      // Overdue → needs attention
+      if (days < 0) return "attention";
+
+      // Construction with no nextStageDate → needs attention
+      if (phase === "Construction" && !proj.nextStageDate) return "attention";
+
+      if (days <= 30)  return "this";
+      if (days <= 60)  return "next";
+      if (days <= 90)  return "soon";
+      return "beyond";
+    }
+
+    // ── Urgency class for card border and chips ─────────────────────────────
+    function getUrgency(days) {
+      if (days === null || days < 0 || days <= 14) return "urgent";
+      if (days <= 30) return "amber";
+      return "safe";
+    }
+
+    // ── Phase badge class ───────────────────────────────────────────────────
+    function phaseBadgeClass(phase) {
+      const map = {
+        "Sales":         "phase-sales",
+        "Preliminaries": "phase-prelim",
+        "Construction":  "phase-const",
+        "On Hold":       "phase-hold",
+        "Completed":     "phase-complete",
+        "Cancelled":     "phase-complete"
+      };
+      return map[phase] || "";
+    }
+
+    // ── Apply filters ───────────────────────────────────────────────────────
+    function getFiltered() {
+      const search = filterSearch.value.trim().toLowerCase();
+      const supId  = filterSupervisor.value;
+      const phase  = filterPhase.value;
+      const type   = filterType.value;
+      const showCompleted = toggleCompleted.checked;
+
+      return allProjects.filter(p => {
+        if (!showCompleted && (p.projectPhase === "Completed" || p.projectPhase === "Cancelled")) return false;
+        if (search) {
+          const code = (p.projectCode    || "").toLowerCase();
+          const addr = (p.projectAddress || "").toLowerCase();
+          if (!code.includes(search) && !addr.includes(search)) return false;
+        }
+        if (supId && p.supervisorId !== supId) return false;
+        if (phase && p.projectPhase !== phase) return false;
+        if (type  && p.projectType  !== type)  return false;
+        return true;
+      });
+    }
+
+    // ── Render board ────────────────────────────────────────────────────────
+    function renderBoard() {
+      const filtered = getFiltered();
+
+      // Bucket projects into columns
+      const columns = { this: [], next: [], soon: [], beyond: [], attention: [] };
+
+      filtered.forEach(proj => {
+        const ms  = getMilestone(proj);
+        const col = getColumn(proj, ms);
+        columns[col].push({ proj, ms });
+      });
+
+      // Summary card updates
+      const thisMonthProjects = columns.this;
+      const totalValue  = filtered.reduce((s, p) => s + (p.contractValueGST || p.estimatedBudget || 0), 0);
+      const monthValue  = thisMonthProjects.reduce((s, {proj}) => s + (proj.contractValueGST || proj.estimatedBudget || 0), 0);
+
+      document.getElementById("card-total").textContent       = filtered.length;
+      document.getElementById("card-this-month").textContent  = thisMonthProjects.length;
+      document.getElementById("card-pipeline").textContent    = formatCurrency(totalValue);
+      document.getElementById("card-revenue-month").textContent = formatCurrency(monthValue);
+
+      boardStatus.innerHTML =
+        `<strong>${filtered.length}</strong> project${filtered.length !== 1 ? "s" : ""} across ` +
+        `<strong>${Object.values(columns).filter(c => c.length > 0).length}</strong> milestone windows`;
+
+      // Column definitions
+      const colDefs = [
+        { key: "this",      label: "This Month",       cls: "col-this",   icon: "&#128197;" },
+        { key: "next",      label: "Next Month",       cls: "col-next",   icon: "&#128336;" },
+        { key: "soon",      label: "2–3 Months",       cls: "col-soon",   icon: "&#128337;" },
+        { key: "beyond",    label: "Beyond 3 Months",  cls: "col-beyond", icon: "&#128338;" },
+        { key: "attention", label: "Needs Attention",  cls: "col-attn",   icon: "&#9888;" }
+      ];
+
+      board.innerHTML = colDefs.map(col => {
+        const items = columns[col.key];
+        const cards = items.length === 0
+          ? `<div class="column-empty">
+               <div class="column-empty-icon">${col.icon}</div>
+               No milestones in this window
+             </div>`
+          : items.map(({ proj, ms }) => buildCard(proj, ms)).join("");
+
+        return `
+          <div class="column ${col.cls}">
+            <div class="column-header">
+              <div class="col-title">${col.label}</div>
+              <div class="col-count">${items.length}</div>
+            </div>
+            <div class="column-body">${cards}</div>
+          </div>`;
+      }).join("");
+
+      // Re-highlight the open card if panel is still open
+      if (openProjectId) {
+        const card = document.querySelector(`.project-card[data-id="${openProjectId}"]`);
+        if (card) card.classList.add("selected");
+      }
+    }
+
+    // ── Build a project card ────────────────────────────────────────────────
+    function buildCard(proj, ms) {
+      const urgency   = getUrgency(ms.days);
+      const value     = proj.contractValueGST || proj.estimatedBudget;
+      const supInit   = supervisorInitials(proj.supervisorId);
+      const phase     = proj.projectPhase || "—";
+      const stage     = proj.currentStage;
+
+      // Milestone date display
+      let milestoneDisplay = "";
+      if (ms.date) {
+        const dateStr = ms.type === "month" ? formatMonthYear(ms.date) : formatDate(ms.date);
+        milestoneDisplay = `<div class="card-milestone"><strong>${ms.label}:</strong> ${dateStr}</div>`;
+      } else {
+        milestoneDisplay = `<div class="card-milestone" style="color:var(--text-muted)">${ms.label}</div>`;
+      }
+
+      // Days chip
+      let daysChip = "";
+      if (ms.days !== null) {
+        const chipCls = urgency === "urgent" ? "days-urgent" : urgency === "amber" ? "days-amber" : "days-safe";
+        const daysLabel = ms.days < 0
+          ? Math.abs(ms.days) + "d overdue"
+          : ms.days === 0 ? "Today" : ms.days + " days";
+        daysChip = `<span class="days-chip ${chipCls}">${daysLabel}</span>`;
+      }
+
+      return `
+        <div
+          class="project-card urgency-${urgency}"
+          data-id="${proj.id}"
+          onclick="openPanel('${proj.id}')"
+        >
+          <div class="card-top">
+            <div class="card-code">${proj.projectCode || "—"}</div>
+            <div class="supervisor-badge" title="${supInit !== "—" ? (supervisorMap[proj.supervisorId]?.firstName || "") + " " + (supervisorMap[proj.supervisorId]?.lastName || "") : "No supervisor"}">${supInit}</div>
+          </div>
+          <div class="card-address">${proj.projectAddress || "No address"}</div>
+          <div class="card-badges">
+            <span class="card-badge">${proj.projectType || "—"}</span>
+            ${stage
+              ? `<span class="card-badge stage">${stage}</span>`
+              : `<span class="card-badge ${phaseBadgeClass(phase)}">${phase}</span>`
+            }
+          </div>
+          ${milestoneDisplay}
+          <div class="card-footer">
+            <div class="card-value">${formatCurrency(value)}</div>
+            ${daysChip}
+          </div>
+        </div>`;
+    }
+
+    // ── Open slide-out panel ────────────────────────────────────────────────
+    window.openPanel = function(projId) {
+      const proj = allProjects.find(p => p.id === projId);
+      if (!proj) return;
+
+      openProjectId = projId;
+
+      // Highlight selected card
+      document.querySelectorAll(".project-card").forEach(c => c.classList.remove("selected"));
+      const card = document.querySelector(`.project-card[data-id="${projId}"]`);
+      if (card) card.classList.add("selected");
+
+      panelCode.textContent = proj.projectCode || "—";
+      panelAddr.textContent = proj.projectAddress || "—";
+
+      const canEdit    = currentUserRole === "director" || currentUserRole === "supervisor";
+      const isDirector = currentUserRole === "director";
+
+      // Build panel content
+      const supName = proj.supervisorId && supervisorMap[proj.supervisorId]
+        ? ((supervisorMap[proj.supervisorId].firstName||"") + " " + (supervisorMap[proj.supervisorId].lastName||"")).trim()
+        : "Unassigned";
+
+      const ms = getMilestone(proj);
+      const milestoneStr = ms.date
+        ? ms.label + ": " + (ms.type === "month" ? formatMonthYear(ms.date) : formatDate(ms.date))
+        : ms.label;
+
+      const readonlyNotice = (!canEdit)
+        ? `<div class="readonly-notice show">&#128274; You have read-only access to this project.</div>`
+        : "";
+
+      // Stage options HTML
+      const stageOpts = ["", ...STAGES].map(s =>
+        `<option value="${s}" ${proj.currentStage === s ? "selected" : ""}>${s || "— None —"}</option>`
+      ).join("");
+      const nextStageOpts = ["", ...STAGES].map(s =>
+        `<option value="${s}" ${proj.nextStage === s ? "selected" : ""}>${s || "— None —"}</option>`
+      ).join("");
+
+      // Phase options (Directors only)
+      const phases = ["Sales","Preliminaries","Construction","Completed","On Hold","Cancelled"];
+      const phaseOpts = phases.map(p =>
+        `<option value="${p}" ${proj.projectPhase === p ? "selected" : ""}>${p}</option>`
+      ).join("");
+
+      panelBody.innerHTML = `
+        ${readonlyNotice}
+
+        <!-- Read-only info -->
+        <div class="panel-info-grid">
+          <div class="info-item">
+            <div class="info-label">Project Type</div>
+            <div class="info-value">${proj.projectType || "—"}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Supervisor</div>
+            <div class="info-value">${supName}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Fiscal Year</div>
+            <div class="info-value">${proj.fiscalYear || "—"}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Next Milestone</div>
+            <div class="info-value">${milestoneStr}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Est. Budget</div>
+            <div class="info-value">${formatCurrency(proj.estimatedBudget)}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Contract Value (inc GST)</div>
+            <div class="info-value">${proj.contractValueGST ? formatCurrency(proj.contractValueGST) : "—"}</div>
+          </div>
+        </div>
+
+        <div class="panel-section-title">Stage &amp; Schedule</div>
+
+        ${canEdit ? `
+          <div class="panel-field">
+            <label>Current Stage</label>
+            <div class="panel-select-wrap">
+              <select id="pf-currentStage" onchange="autoNextStage()">
+                ${stageOpts}
+              </select>
+            </div>
+          </div>
+          <div class="panel-field">
+            <label>Next Stage</label>
+            <div class="panel-select-wrap">
+              <select id="pf-nextStage">${nextStageOpts}</select>
+            </div>
+          </div>
+          <div class="panel-field">
+            <label>Next Stage Date</label>
+            <input type="date" id="pf-nextStageDate" value="${proj.nextStageDate || ""}" />
+          </div>
+        ` : `
+          <div class="panel-info-grid">
+            <div class="info-item">
+              <div class="info-label">Current Stage</div>
+              <div class="info-value">${proj.currentStage || "—"}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Next Stage</div>
+              <div class="info-value">${proj.nextStage || "—"}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Next Stage Date</div>
+              <div class="info-value">${formatDate(proj.nextStageDate)}</div>
+            </div>
+          </div>
+        `}
+
+        ${isDirector ? `
+          <div class="panel-section-title">Pipeline Details</div>
+          <div class="panel-field">
+            <label>Project Phase</label>
+            <div class="panel-select-wrap">
+              <select id="pf-projectPhase">${phaseOpts}</select>
+            </div>
+          </div>
+          <div class="panel-field">
+            <label>Expected Commencement Month</label>
+            <input type="month" id="pf-expectedCommencement" value="${proj.expectedCommencementMonth || ""}" />
+          </div>
+          <div class="panel-field">
+            <label>Preliminary Target Date</label>
+            <input type="date" id="pf-prelimDate" value="${proj.preliminaryTargetDate || ""}" />
+          </div>
+        ` : ""}
+
+        ${canEdit ? `
+          <div class="panel-section-title">Notes</div>
+          <div class="panel-field">
+            <label>Pipeline Notes</label>
+            <textarea id="pf-pipelineNotes">${proj.pipelineNotes || ""}</textarea>
+          </div>
+        ` : `
+          ${proj.pipelineNotes ? `
+            <div class="panel-section-title">Notes</div>
+            <div style="font-size:13px;color:var(--text-mid);line-height:1.6">${proj.pipelineNotes}</div>
+          ` : ""}
+        `}
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <a
+            href="project-detail.html?projectId=${proj.id}"
+            style="display:inline-flex;align-items:center;gap:6px;font-family:Arial,sans-serif;font-size:13px;font-weight:700;padding:8px 18px;background:var(--navy);color:#ffffff;border-radius:var(--radius);text-decoration:none;transition:background 0.15s"
+            onmouseover="this.style.background='var(--navy-light)'"
+            onmouseout="this.style.background='var(--navy)'"
+          >&#128196; Full Detail</a>
+        </div>
+      `;
+
+      // Show/hide save button based on edit permission
+      panelFooter.style.display = canEdit ? "flex" : "none";
+      panelSaveMsg.style.display = "none";
+
+      // Store the project id on the save button for the handler
+      btnPanelSave.dataset.projId = projId;
+
+      // Open panel
+      panelOverlay.classList.add("show");
+      slidePanel.classList.add("open");
+    };
+
+    // ── Auto-suggest next stage when current stage changes ──────────────────
+    window.autoNextStage = function() {
+      const currentSelect = document.getElementById("pf-currentStage");
+      const nextSelect    = document.getElementById("pf-nextStage");
+      if (!currentSelect || !nextSelect) return;
+      const idx = STAGES.indexOf(currentSelect.value);
+      if (idx >= 0 && idx < STAGES.length - 1) {
+        nextSelect.value = STAGES[idx + 1];
+      }
+    };
+
+    // ── Close panel ─────────────────────────────────────────────────────────
+    function closePanel() {
+      slidePanel.classList.remove("open");
+      panelOverlay.classList.remove("show");
+      document.querySelectorAll(".project-card").forEach(c => c.classList.remove("selected"));
+      openProjectId = null;
+    }
+
+    btnClosePanel.addEventListener("click",  closePanel);
+    btnPanelCancel.addEventListener("click", closePanel);
+    panelOverlay.addEventListener("click",   closePanel);
+
+    // ── Save panel changes ───────────────────────────────────────────────────
+    btnPanelSave.addEventListener("click", async () => {
+      const projId = btnPanelSave.dataset.projId;
+      if (!projId) return;
+
+      btnPanelSave.disabled = true;
+      btnPanelSave.innerHTML = '<span class="spinner-sm"></span> Saving...';
+
+      try {
+        let updates = { updatedAt: serverTimestamp() };
+        const isDirector = currentUserRole === "director";
+
+        // Stage fields (Director and Supervisor)
+        const currentStageEl = document.getElementById("pf-currentStage");
+        const nextStageEl    = document.getElementById("pf-nextStage");
+        const nextDateEl     = document.getElementById("pf-nextStageDate");
+        const notesEl        = document.getElementById("pf-pipelineNotes");
+
+        if (currentStageEl) updates.currentStage  = currentStageEl.value;
+        if (nextStageEl)    updates.nextStage      = nextStageEl.value;
+        if (nextDateEl)     updates.nextStageDate  = nextDateEl.value;
+        if (notesEl)        updates.pipelineNotes  = notesEl.value.trim();
+
+        // Director-only fields
+        if (isDirector) {
+          const phaseEl   = document.getElementById("pf-projectPhase");
+          const commEl    = document.getElementById("pf-expectedCommencement");
+          const prelimEl  = document.getElementById("pf-prelimDate");
+          if (phaseEl)  updates.projectPhase             = phaseEl.value;
+          if (commEl)   updates.expectedCommencementMonth= commEl.value;
+          if (prelimEl) updates.preliminaryTargetDate    = prelimEl.value;
+        }
+
+        await updateDoc(doc(db, "projects", projId), updates);
+
+        // Re-fetch the saved document from Firestore so the local data
+        // reflects the actual stored values (serverTimestamp resolves correctly,
+        // all fields are accurate). This is what drives the column recalculation.
+        const refreshedSnap = await getDoc(doc(db, "projects", projId));
+        if (refreshedSnap.exists()) {
+          const idx = allProjects.findIndex(p => p.id === projId);
+          const refreshedData = { id: projId, ...refreshedSnap.data() };
+          if (idx > -1) {
+            allProjects[idx] = refreshedData;
+          } else {
+            allProjects.push(refreshedData);
+          }
+        }
+
+        panelSaveMsg.style.display = "inline";
+        setTimeout(() => { panelSaveMsg.style.display = "none"; }, 3000);
+
+        // Re-render board — card now moves to the correct column
+        // based on the freshly fetched milestone dates from Firestore.
+        renderBoard();
+
+      } catch (err) {
+        console.error("Error saving:", err);
+        alert("Failed to save: " + err.message);
+      } finally {
+        btnPanelSave.disabled = false;
+        btnPanelSave.innerHTML = "Save Changes";
+      }
+    });
+
+    // ── Filter listeners ────────────────────────────────────────────────────
+    filterSearch.addEventListener("input",     renderBoard);
+    filterSupervisor.addEventListener("change", renderBoard);
+    filterPhase.addEventListener("change",      renderBoard);
+    filterType.addEventListener("change",       renderBoard);
+    toggleCompleted.addEventListener("change",  renderBoard);
+    btnClear.addEventListener("click", () => {
+      filterSearch.value    = "";
+      filterSupervisor.value= "";
+      filterPhase.value     = "";
+      filterType.value      = "";
+      toggleCompleted.checked = false;
+      renderBoard();
+    });
+
+    // Sign out handled by nav.js
+
+  </script>
+</body>
+</html>

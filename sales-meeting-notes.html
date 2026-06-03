@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sales Meeting Notes — Pacific Blue</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Meeting header ── */
+    .meeting-header {
+      background: #fff; border: 1px solid #E5E3E0; border-radius: 8px;
+      padding: 18px 22px; margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .meeting-title {
+      font-size: 18px; font-weight: 600; color: #333F48;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .date-picker-wrap { position: relative; display: inline-block; }
+    .meeting-date-btn {
+      font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 600;
+      color: #B7B09C; background: none; border: none;
+      border-bottom: 2px dashed #B7B09C; padding: 0 2px; cursor: pointer;
+    }
+    .date-picker-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+    .meeting-subtitle { font-size: 13px; color: #6B7280; margin-top: 4px; }
+    .btn-print { padding: 7px 14px; background: #F5F4F2; color: #333F48; border: 1px solid #E5E3E0; border-radius: 6px; font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; }
+    .btn-print:hover { background: #E5E3E0; }
+
+    /* ── Section toggle ── */
+    .section-toggle {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      background: #333F48; color: #fff; border: none;
+      padding: 12px 18px; border-radius: 8px 8px 0 0;
+      font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .section-toggle:hover { background: #2a333c; }
+    .section-toggle-left { display: flex; align-items: center; gap: 10px; }
+    .section-count { background: rgba(255,255,255,0.15); border-radius: 20px; padding: 2px 9px; font-size: 11px; font-weight: 600; }
+    .section-chev { font-size: 11px; transition: transform 0.2s; }
+    .section-chev.closed { transform: rotate(-90deg); }
+    .section-body { border: 1px solid #E5E3E0; border-top: none; border-radius: 0 0 8px 8px; overflow: hidden; margin-bottom: 20px; }
+    .section-body.hidden { display: none; }
+    .section-empty { padding: 24px; text-align: center; color: #6B7280; font-size: 13px; background: #fff; }
+
+    /* ── Project card ── */
+    .proj-card { background: #fff; border-bottom: 2px solid #E5E3E0; }
+    .proj-card:last-child { border-bottom: none; }
+    .proj-header { background: #333F48; padding: 12px 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .proj-header-left { flex: 1; min-width: 0; }
+    .proj-code-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 3px; }
+    .proj-code { font-size: 14px; font-weight: 700; color: #B7B09C; }
+    .proj-type-badge { font-size: 10px; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 2px 8px; color: rgba(255,255,255,0.6); }
+    .proj-address { font-size: 12px; color: rgba(255,255,255,0.65); }
+    .proj-header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+    .proj-meta { font-size: 12px; color: rgba(255,255,255,0.75); text-align: right; }
+    .proj-meta strong { color: #fff; }
+    .lh-pct-badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .lh-pct-high   { background: #EAF5EF; color: #2D6A4F; }
+    .lh-pct-medium { background: #FEF3E2; color: #B7791F; }
+    .lh-pct-low    { background: #FDEDF0; color: #9B2335; }
+    .btn-detail-sm { font-size: 11px; font-weight: 600; padding: 3px 9px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; text-decoration: none; }
+    .btn-detail-sm:hover { background: rgba(255,255,255,0.18); text-decoration: none; }
+
+    /* ── Project body ── */
+    .proj-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+
+    /* ── Sub-card ── */
+    .sub-card { border: 1px solid #E5E3E0; border-radius: 6px; overflow: hidden; }
+    .sub-label { background: #F5F4F2; padding: 8px 13px; font-size: 11px; font-weight: 600; color: #333F48; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #E5E3E0; display: flex; align-items: center; justify-content: space-between; }
+    .sub-body { padding: 13px; }
+
+    /* ── Date rows ── */
+    .date-row { display: flex; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px solid #E5E3E0; }
+    .date-row:last-child { border-bottom: none; }
+    .date-row-label { flex: 1; font-size: 13px; color: #6B7280; display: flex; align-items: center; gap: 5px; }
+    .lock-icon { font-size: 10px; color: #B7B09C; }
+    .date-input { font-family: 'Poppins', sans-serif; font-size: 13px; color: #333F48; border: 1px solid #E5E3E0; border-radius: 6px; padding: 4px 8px; background: #fff; }
+    .date-input:focus { outline: none; border-color: #333F48; }
+    .date-row-value { font-size: 13px; font-weight: 500; color: #333F48; min-width: 110px; text-align: right; }
+    .date-save-ind { font-size: 11px; color: #2D6A4F; display: none; margin-left: 4px; }
+    .date-save-ind.show { display: inline; }
+
+    /* ── Pipeline status ── */
+    .pipeline-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .pipeline-item { display: flex; flex-direction: column; gap: 4px; }
+    .pipeline-label { font-size: 10px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.4px; }
+    .pipeline-value { font-size: 14px; font-weight: 500; color: #333F48; }
+    .lh-editable { display: flex; align-items: center; gap: 8px; }
+    .lh-input { width: 70px; font-family: 'Poppins', sans-serif; font-size: 14px; color: #333F48; border: 1px solid #E5E3E0; border-radius: 6px; padding: 4px 8px; }
+    .lh-input:focus { outline: none; border-color: #333F48; }
+    .btn-lh-save { padding: 4px 10px; background: #333F48; color: #fff; border: none; border-radius: 6px; font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 500; cursor: pointer; }
+    .btn-lh-save:hover { background: #2a333c; }
+
+    /* ── Claim schedule status ── */
+    .cs-warning { background: #FEF3E2; border: 1px solid #F6D860; border-radius: 6px; padding: 10px 13px; font-size: 13px; color: #B7791F; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .cs-ok { background: #EAF5EF; border: 1px solid #B2DFCC; border-radius: 6px; padding: 10px 13px; font-size: 13px; color: #2D6A4F; }
+    .btn-setup-schedule { font-size: 12px; font-weight: 600; padding: 4px 10px; background: #B7791F; color: #fff; border: none; border-radius: 6px; text-decoration: none; white-space: nowrap; }
+    .btn-setup-schedule:hover { background: #9a6519; text-decoration: none; }
+
+    /* ── Notes textareas ── */
+    .notes-textarea { width: 100%; font-family: 'Poppins', sans-serif; font-size: 13px; color: #333F48; border: 1px solid #E5E3E0; border-radius: 6px; padding: 9px 11px; resize: vertical; min-height: 72px; background: #fff; }
+    .notes-textarea:focus { outline: none; border-color: #333F48; }
+
+    /* ── Phase action (Record Prelim) ── */
+    .btn-phase-action { font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; padding: 9px 18px; background: #B7B09C; border: none; border-radius: 6px; color: #333F48; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 7px; }
+    .btn-phase-action:hover { background: #c8c1ad; }
+    .phase-confirm-panel { display: none; margin-top: 12px; padding: 16px; background: #FEF3E2; border: 1px solid #F6D860; border-radius: 6px; max-width: 420px; }
+    .phase-confirm-panel.open { display: block; }
+    .phase-confirm-panel h4 { font-size: 12px; font-weight: 600; color: #333F48; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 12px; }
+    .pcf-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .pcf-row label { font-size: 10px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.4px; }
+    .pcf-row input { font-family: 'Poppins', sans-serif; font-size: 13px; color: #333F48; border: 1px solid #E5E3E0; border-radius: 6px; padding: 7px 10px; width: 100%; }
+    .pcf-row input:focus { outline: none; border-color: #333F48; }
+    .pcf-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .btn-phase-confirm { font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; padding: 7px 16px; background: #333F48; border: none; border-radius: 6px; color: #fff; cursor: pointer; }
+    .btn-phase-confirm:hover:not(:disabled) { background: #2a333c; }
+    .btn-phase-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-pcf-cancel { background: none; border: none; font-family: 'Poppins', sans-serif; font-size: 13px; color: #6B7280; cursor: pointer; text-decoration: underline; }
+    .phase-action-msg { font-size: 12px; font-weight: 600; color: #2D6A4F; display: none; }
+    .phase-action-err { font-size: 12px; font-weight: 600; color: #9B2335; display: none; }
+
+    /* ── Save row ── */
+    .save-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 4px; }
+    .btn-save-notes { font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; padding: 8px 18px; background: #333F48; border: none; border-radius: 6px; color: #fff; cursor: pointer; transition: background 0.15s; }
+    .btn-save-notes:hover:not(:disabled) { background: #2a333c; }
+    .btn-save-notes:disabled { opacity: 0.5; cursor: not-allowed; }
+    .save-ok  { font-size: 12px; font-weight: 600; color: #2D6A4F; display: none; }
+    .save-err { font-size: 12px; font-weight: 600; color: #9B2335; display: none; }
+
+    /* ── Previous notes ── */
+    .prev-toggle { width: 100%; background: none; border: none; border-top: 1px solid #E5E3E0; text-align: left; padding: 8px 13px; font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 600; color: #6B7280; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .prev-toggle:hover { background: #F5F4F2; color: #333F48; }
+    .prev-body { display: none; padding: 0 13px 13px; }
+    .prev-body.open { display: block; }
+    .prev-note { border: 1px solid #E5E3E0; border-radius: 6px; padding: 10px 12px; margin-top: 10px; background: #F5F4F2; }
+    .prev-note-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+    .prev-note-date { font-size: 12px; font-weight: 700; color: #333F48; }
+    .btn-del-note { font-size: 11px; padding: 2px 7px; background: #FDEDF0; color: #9B2335; border: 1px solid #F1B9C0; border-radius: 4px; font-family: 'Poppins', sans-serif; cursor: pointer; }
+    .btn-del-note:hover { background: #f5c0c8; }
+    .prev-field-label { font-size: 10px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.3px; }
+    .prev-field-value { font-size: 13px; color: #333F48; white-space: pre-wrap; margin-top: 1px; }
+
+    .spinner-sm { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media print {
+      #sidebar, #sidebar-hamburger, #sidebar-overlay, .btn-print, .btn-save-notes,
+      .btn-phase-action, .phase-confirm-panel, .prev-toggle, .save-row { display: none !important; }
+      .section-body.hidden { display: block !important; }
+      .prev-body { display: block !important; }
+      .main-content { margin-left: 0 !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <main class="main-content">
+
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1 class="page-title">Sales Meeting Notes</h1>
+          <p class="page-subtitle">Weekly sales review — Pipeline opportunities</p>
+        </div>
+        <button class="btn-print" onclick="window.print()">🖨 Print</button>
+      </div>
+
+      <!-- Meeting header -->
+      <div class="meeting-header">
+        <div>
+          <div class="meeting-title">
+            Sales Meeting —
+            <span class="date-picker-wrap">
+              <button class="meeting-date-btn" id="meeting-date-display">Loading…</button>
+              <input type="date" class="date-picker-input" id="meeting-date-input" />
+            </span>
+          </div>
+          <div class="meeting-subtitle" id="meeting-subtitle">Loading projects…</div>
+        </div>
+      </div>
+
+      <!-- Sections -->
+      <div id="board"></div>
+
+    </main>
+  </div>
+
+  <button id="sidebar-hamburger" aria-label="Open menu">☰</button>
+  <div id="sidebar-overlay"></div>
+
+  <script type="module">
+    import { initNav }   from "./nav.js";
+    import { db }       from "./firebase-config.js";
+    import {
+      collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
+      query, orderBy, limit, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    let currentUser   = null;
+    let currentRole   = null;
+    let allProjects   = [];
+    let marketPct     = 1.0;
+    let meetingDate   = new Date().toISOString().split("T")[0];
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function todayISO() { return new Date().toISOString().split("T")[0]; }
+
+    function fmtDate(iso) {
+      if (!iso) return "—";
+      const m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const d = new Date(iso + "T00:00:00");
+      return `${d.getDate()} ${m[d.getMonth()]} ${d.getFullYear()}`;
+    }
+
+    function fmtCur(n) {
+      if (!n && n !== 0) return "—";
+      return "$" + Number(n).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+    }
+
+    function getLhLevel(pct) {
+      if (pct >= 70) return "High";
+      if (pct >= 40) return "Medium";
+      return "Low";
+    }
+
+    function lhPctBadgeClass(pct) {
+      if (pct >= 70) return "lh-pct-high";
+      if (pct >= 40) return "lh-pct-medium";
+      return "lh-pct-low";
+    }
+
+    function esc(s) {
+      return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    // ── Load data ─────────────────────────────────────────────────────────────
+    async function loadAll() {
+      try {
+        const snap = await getDoc(doc(db, "settings", "global"));
+        if (snap.exists() && snap.data().marketConditionsPct)
+          marketPct = parseFloat(snap.data().marketConditionsPct);
+      } catch (e) {}
+
+      function derivePhase(p) {
+        if (p.cancelledAt)     return "Cancelled";
+        if (p.onHoldAt)        return "On Hold";
+        if (p.completedAt)     return "Completed";
+        if (p.pcClaimIssued)   return "Practical Completion";
+        if (p.contractDate)    return "Construction";
+        if (p.preliminaryDate) return "Preliminaries";
+        return "Sales";
+      }
+
+      const snap = await getDocs(query(collection(db, "projects"), orderBy("createdAt", "desc")));
+      const projects = [];
+      snap.forEach(doc => {
+        const p = { id: doc.id, ...doc.data() };
+        if (p.deletedAt) return;
+        const phase = derivePhase(p);
+        if (phase === "Sales" || phase === "Preliminaries") {
+          projects.push({ ...p, _phase: phase });
+        }
+      });
+      console.log("[SalesMtg] Projects found:", projects.length, projects.map(p => p.projectCode));
+      allProjects = projects;
+
+      renderBoard();
+    }
+
+    // ── Render board ──────────────────────────────────────────────────────────
+    function renderBoard() {
+      const sales  = allProjects.filter(p => p._phase === "Sales");
+      const prelim = allProjects.filter(p => p._phase === "Preliminaries");
+
+      document.getElementById("meeting-date-display").textContent = fmtDate(meetingDate);
+      document.getElementById("meeting-date-input").value = meetingDate;
+
+      const totalWeighted = allProjects.reduce((s,p) => s + (p.estimatedBudget||0)*(p.likelihoodPct||0)*marketPct, 0);
+      const highLH = allProjects.filter(p => (p.likelihoodPct||0) >= 0.5).length;
+      document.getElementById("meeting-subtitle").textContent =
+        `${allProjects.length} opportunit${allProjects.length!==1?"ies":"y"} in pipeline — ${highLH} at 50%+ likelihood — Total weighted ${fmtCur(totalWeighted)}`;
+
+      const groups = [
+        { key:"sales",  label:"Sales Phase",        icon:"📋", list:sales  },
+        { key:"prelim", label:"Preliminaries Phase", icon:"📐", list:prelim }
+      ];
+
+      document.getElementById("board").innerHTML = groups.map(g => `
+        <div>
+          <button class="section-toggle" onclick="toggleSection('${g.key}')">
+            <div class="section-toggle-left">
+              ${g.icon} ${g.label}
+              <span class="section-count">${g.list.length}</span>
+            </div>
+            <span class="section-chev" id="chev-${g.key}">▾</span>
+          </button>
+          <div class="section-body" id="section-${g.key}">
+            ${g.list.length === 0
+              ? `<div class="section-empty">No ${g.label.toLowerCase()} projects.</div>`
+              : g.list.map(p => buildCard(p)).join("")}
+          </div>
+        </div>`).join("");
+
+      // Load async data
+      allProjects.forEach(p => {
+        loadTodayNotes(p.id, p._phase);
+        loadPrevNotes(p.id);
+        loadClaimScheduleStatus(p.id, p.likelihoodPct||0);
+      });
+    }
+
+    window.toggleSection = function(key) {
+      const body = document.getElementById(`section-${key}`);
+      const chev = document.getElementById(`chev-${key}`);
+      body?.classList.toggle("hidden");
+      chev?.classList.toggle("closed");
+    };
+
+    // ── Build project card ────────────────────────────────────────────────────
+    function buildCard(p) {
+      const id  = p.id;
+      const pct = Math.round((p.likelihoodPct||0)*100);
+      const wt  = fmtCur((p.estimatedBudget||0)*(p.likelihoodPct||0)*marketPct);
+      const isPrelim = p._phase === "Preliminaries";
+
+      const today = todayISO();
+
+      // ── Milestone dates ────────────────────────────────────────────────────
+      const milestoneDatesHTML = `
+        <div class="sub-card">
+          <div class="sub-label">Milestone Dates</div>
+          <div class="sub-body">
+            ${buildEditableDateRow(id,"consultDate","Consult Date",p.consultDate)}
+            ${buildEditableDateRow(id,"conceptDate","Concept / Proposal Presentation Date",p.conceptDate)}
+            ${buildEditableDateRow(id,"preliminaryTargetDate","Preliminary Agreement Target Date",p.preliminaryTargetDate)}
+            ${isPrelim ? buildReadonlyDateRow("Preliminary Agreement Date (signed)",p.preliminaryDate) : ""}
+            ${isPrelim ? buildEditableDateRow(id,"contractDate","Contract Target Date",p.contractDate) : ""}
+            ${isPrelim ? buildEditableDateRow(id,"commenceDate","Commencement Target Date",p.commenceDate) : ""}
+          </div>
+        </div>`;
+
+      // ── Pipeline status ────────────────────────────────────────────────────
+      const pipelineHTML = `
+        <div class="sub-card">
+          <div class="sub-label">Pipeline Status</div>
+          <div class="sub-body">
+            <div class="pipeline-grid">
+              <div class="pipeline-item">
+                <div class="pipeline-label">Likelihood %</div>
+                <div class="lh-editable">
+                  <input class="lh-input" type="number" id="lh-pct-${id}" value="${pct}" min="0" max="100" step="5"
+                    oninput="updateLhDisplay('${id}')" />
+                  <button class="btn-lh-save" onclick="saveLikelihood('${id}')">Save</button>
+                  <span class="date-save-ind" id="lh-ind-${id}">✓</span>
+                </div>
+              </div>
+              <div class="pipeline-item">
+                <div class="pipeline-label">Likelihood Level</div>
+                <div class="pipeline-value">
+                  <span id="lh-level-${id}" class="badge ${pct>=70?"badge-success":pct>=40?"badge-warning":"badge-danger"}">${getLhLevel(pct)}</span>
+                </div>
+              </div>
+              <div class="pipeline-item">
+                <div class="pipeline-label">Weighted Value</div>
+                <div class="pipeline-value" id="lh-wt-${id}">${wt}</div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+
+      // ── Claim schedule status (loaded async) ───────────────────────────────
+      const claimStatusHTML = `
+        <div class="sub-card">
+          <div class="sub-label">Indicative Claim Schedule</div>
+          <div class="sub-body">
+            <div id="cs-status-${id}"><span style="color:#6B7280;font-size:13px">Checking…</span></div>
+          </div>
+        </div>`;
+
+      // ── Notes ──────────────────────────────────────────────────────────────
+      const notesHTML = `
+        <div class="sub-card">
+          <div class="sub-label">Sales Update</div>
+          <div class="sub-body">
+            <textarea class="notes-textarea" id="sales-update-${id}" placeholder="Sales update for this meeting…"></textarea>
+          </div>
+        </div>
+        <div class="sub-card">
+          <div class="sub-label">Next Steps</div>
+          <div class="sub-body">
+            <textarea class="notes-textarea" id="next-steps-${id}" placeholder="Next steps agreed in this meeting…"></textarea>
+          </div>
+        </div>`;
+
+      // ── Record Preliminary Agreement (Sales phase only) ────────────────────
+      const prelimActionHTML = p._phase === "Sales" ? `
+        <div id="prelim-action-${id}">
+          <button class="btn-phase-action" onclick="togglePrelimPanel('${id}')">
+            ✏️ Record Preliminary Agreement
+          </button>
+          <div class="phase-confirm-panel" id="prelim-panel-${id}">
+            <h4>Record Preliminary Agreement</h4>
+            <div class="pcf-row">
+              <label>Preliminary Agreement Date</label>
+              <input type="date" id="pcf-prelim-date-${id}" value="${today}" />
+            </div>
+            <div class="pcf-row">
+              <label>Preliminary Fee inc GST ($)</label>
+              <input type="number" id="pcf-prelim-fee-${id}" min="0" step="100" placeholder="e.g. 3300" />
+            </div>
+            <div class="pcf-actions">
+              <button class="btn-phase-confirm" id="pcf-prelim-btn-${id}" onclick="confirmPrelim('${id}')">
+                Confirm — Move to Preliminaries
+              </button>
+              <button class="btn-pcf-cancel" onclick="togglePrelimPanel('${id}')">Cancel</button>
+              <span class="phase-action-msg" id="prelim-msg-${id}"></span>
+              <span class="phase-action-err" id="prelim-err-${id}"></span>
+            </div>
+          </div>
+        </div>` : "";
+
+      return `
+        <div class="proj-card" id="card-${id}">
+          <div class="proj-header">
+            <div class="proj-header-left">
+              <div class="proj-code-line">
+                <span class="proj-code">${esc(p.projectCode||"—")}</span>
+                ${p.projectType ? `<span class="proj-type-badge">${esc(p.projectType)}</span>` : ""}
+              </div>
+              <div class="proj-address">${esc(p.projectAddress||"—")}</div>
+            </div>
+            <div class="proj-header-right">
+              <span class="lh-pct-badge ${lhPctBadgeClass(pct)}">${pct}% ${getLhLevel(pct)}</span>
+              <div class="proj-meta">${p.expectedCommencementMonth ? fmtDate(p.expectedCommencementMonth+"-01").replace(/\d+ /,"") : "—"}</div>
+              <a class="btn-detail-sm" href="project-detail.html?projectId=${id}">View Detail ↗</a>
+            </div>
+          </div>
+          <div class="proj-body">
+            ${milestoneDatesHTML}
+            ${pipelineHTML}
+            ${claimStatusHTML}
+            ${notesHTML}
+            ${prelimActionHTML}
+            <div class="save-row">
+              <button class="btn-save-notes" id="save-btn-${id}" onclick="saveNotes('${id}')">Save Notes</button>
+              <span class="save-ok" id="save-ok-${id}">✓ Saved</span>
+              <span class="save-err" id="save-err-${id}"></span>
+            </div>
+          </div>
+          <button class="prev-toggle" onclick="togglePrev('${id}')">
+            <span>📅 Previous Notes</span>
+            <span id="prev-chev-${id}">▾</span>
+          </button>
+          <div class="prev-body" id="prev-body-${id}">
+            <div id="prev-content-${id}" style="color:#6B7280;font-size:13px;padding-top:10px">Loading…</div>
+          </div>
+        </div>`;
+    }
+
+    // ── Date row helpers ──────────────────────────────────────────────────────
+    function buildEditableDateRow(projId, field, label, currentVal) {
+      const indId = `ind-${projId}-${field}`;
+      return `
+        <div class="date-row">
+          <div class="date-row-label">${label}</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="date" class="date-input" value="${currentVal||""}"
+              onchange="saveProjectDate('${projId}','${field}',this.value,'${indId}')" />
+            <span class="date-save-ind" id="${indId}">✓ Saved</span>
+          </div>
+        </div>`;
+    }
+
+    function buildReadonlyDateRow(label, val) {
+      return `
+        <div class="date-row">
+          <div class="date-row-label"><span class="lock-icon">🔒</span> ${label}</div>
+          <div class="date-row-value">${fmtDate(val)}</div>
+        </div>`;
+    }
+
+    // ── Save project date inline ──────────────────────────────────────────────
+    window.saveProjectDate = async function(projId, field, value, indId) {
+      try {
+        await updateDoc(doc(db, "projects", projId), { [field]: value, updatedAt: serverTimestamp() });
+        const p = allProjects.find(x => x.id === projId);
+        if (p) p[field] = value;
+        const ind = document.getElementById(indId);
+        if (ind) { ind.classList.add("show"); setTimeout(() => ind.classList.remove("show"), 2000); }
+      } catch (err) {
+        alert("Could not save date: " + err.message);
+      }
+    };
+
+    // ── Likelihood update ─────────────────────────────────────────────────────
+    window.updateLhDisplay = function(projId) {
+      const pct   = parseInt(document.getElementById(`lh-pct-${projId}`)?.value)||0;
+      const level = getLhLevel(pct);
+      const badge = document.getElementById(`lh-level-${projId}`);
+      if (badge) {
+        badge.textContent = level;
+        badge.className   = "badge " + (pct>=70?"badge-success":pct>=40?"badge-warning":"badge-danger");
+      }
+      const wt = document.getElementById(`lh-wt-${projId}`);
+      const p  = allProjects.find(x => x.id === projId);
+      if (wt && p) wt.textContent = fmtCur((p.estimatedBudget||0)*(pct/100)*marketPct);
+    };
+
+    window.saveLikelihood = async function(projId) {
+      const pct   = parseInt(document.getElementById(`lh-pct-${projId}`)?.value)||0;
+      const level = getLhLevel(pct);
+      const ind   = document.getElementById(`lh-ind-${projId}`);
+      try {
+        await updateDoc(doc(db, "projects", projId), { likelihoodPct: pct/100, likelihoodLevel: level, updatedAt: serverTimestamp() });
+        const p = allProjects.find(x => x.id === projId);
+        if (p) { p.likelihoodPct = pct/100; p.likelihoodLevel = level; }
+        if (ind) { ind.classList.add("show"); setTimeout(() => ind.classList.remove("show"), 2000); }
+      } catch (err) {
+        alert("Could not save likelihood: " + err.message);
+      }
+    };
+
+    // ── Claim schedule status ─────────────────────────────────────────────────
+    async function loadClaimScheduleStatus(projId, likelihoodPct) {
+      const el = document.getElementById(`cs-status-${projId}`);
+      if (!el) return;
+      try {
+        const snap = await getDocs(collection(db, "projects", projId, "claimschedule"));
+        const pct  = Math.round(likelihoodPct * 100);
+        if (snap.empty) {
+          if (pct >= 50) {
+            el.innerHTML = `<div class="cs-warning">⚠ Indicative claim schedule required <a class="btn-setup-schedule" href="project-detail.html?projectId=${projId}#claim-schedule">Set Up Schedule</a></div>`;
+          } else {
+            el.innerHTML = `<span style="color:#6B7280;font-size:13px">No schedule set up yet.</span>`;
+          }
+        } else {
+          const total = snap.docs.reduce((s,d) => s + (d.data().estimatedAmount||0), 0);
+          el.innerHTML = `<div class="cs-ok">✓ Indicative schedule set — ${snap.size} claim${snap.size!==1?"s":""} · Total estimated ${fmtCur(total)}</div>`;
+        }
+      } catch (err) {
+        el.innerHTML = `<span style="color:#9B2335;font-size:13px">Failed to load schedule.</span>`;
+      }
+    }
+
+    // ── Load today's saved notes ──────────────────────────────────────────────
+    async function loadTodayNotes(projId) {
+      try {
+        const snap = await getDoc(doc(db, "projects", projId, "meetingnotes", meetingDate));
+        if (!snap.exists()) return;
+        const n = snap.data();
+        const su = document.getElementById(`sales-update-${projId}`);
+        const ns = document.getElementById(`next-steps-${projId}`);
+        if (su) su.value = n.salesUpdate || "";
+        if (ns) ns.value = n.nextSteps || "";
+      } catch (err) { /* non-fatal */ }
+    }
+
+    // ── Save notes ────────────────────────────────────────────────────────────
+    window.saveNotes = async function(projId) {
+      const btn   = document.getElementById(`save-btn-${projId}`);
+      const okEl  = document.getElementById(`save-ok-${projId}`);
+      const errEl = document.getElementById(`save-err-${projId}`);
+      if (!btn) return;
+      btn.disabled = true; btn.innerHTML = '<span class="spinner-sm"></span>';
+      [okEl, errEl].forEach(e => { if (e) e.style.display = "none"; });
+      try {
+        await setDoc(doc(db, "projects", projId, "meetingnotes", meetingDate), {
+          meetingDate,
+          phase:        "sales",
+          salesUpdate:  document.getElementById(`sales-update-${projId}`)?.value.trim() || "",
+          nextSteps:    document.getElementById(`next-steps-${projId}`)?.value.trim() || "",
+          savedBy:      currentUser.uid,
+          savedAt:      serverTimestamp()
+        });
+        if (okEl) { okEl.style.display = "inline"; setTimeout(() => { okEl.style.display = "none"; }, 4000); }
+        await loadPrevNotes(projId);
+        const pb = document.getElementById(`prev-body-${projId}`);
+        const pc = document.getElementById(`prev-chev-${projId}`);
+        if (pb && !pb.classList.contains("open")) { pb.classList.add("open"); if (pc) pc.textContent = "▴"; }
+      } catch (err) {
+        if (errEl) { errEl.textContent = "Save failed: " + err.message; errEl.style.display = "inline"; }
+      } finally {
+        btn.disabled = false; btn.innerHTML = "Save Notes";
+      }
+    };
+
+    // ── Previous notes ────────────────────────────────────────────────────────
+    window.togglePrev = function(projId) {
+      const body = document.getElementById(`prev-body-${projId}`);
+      const chev = document.getElementById(`prev-chev-${projId}`);
+      if (!body) return;
+      const open = body.classList.toggle("open");
+      if (chev) chev.textContent = open ? "▴" : "▾";
+    };
+
+    async function loadPrevNotes(projId) {
+      const el = document.getElementById(`prev-content-${projId}`);
+      if (!el) return;
+      try {
+        const snap = await getDocs(query(
+          collection(db, "projects", projId, "meetingnotes"),
+          orderBy("meetingDate","desc"), limit(3)
+        ));
+        if (snap.empty) { el.innerHTML = `<div style="color:#6B7280;font-size:13px;padding-top:8px">No previous notes.</div>`; return; }
+        let html = "";
+        snap.forEach(d => {
+          const n    = d.data();
+          const docId= d.id;
+          const isDir= currentRole === "director";
+          html += `
+            <div class="prev-note" id="prev-note-${projId}-${docId}">
+              <div class="prev-note-header">
+                <span class="prev-note-date">${fmtDate(n.meetingDate)}</span>
+                ${isDir ? `<button class="btn-del-note" onclick="deletePrevNote('${projId}','${docId}')">Delete</button>` : ""}
+              </div>
+              ${n.salesUpdate ? `<div class="prev-field-label">Sales Update</div><div class="prev-field-value">${esc(n.salesUpdate)}</div>` : ""}
+              ${n.nextSteps   ? `<div class="prev-field-label" style="margin-top:6px">Next Steps</div><div class="prev-field-value">${esc(n.nextSteps)}</div>` : ""}
+            </div>`;
+        });
+        el.innerHTML = html || `<div style="color:#6B7280;font-size:13px;padding-top:8px">No previous notes.</div>`;
+      } catch (err) {
+        el.innerHTML = `<div style="color:#9B2335;font-size:13px;padding-top:8px">Failed to load.</div>`;
+      }
+    }
+
+    window.deletePrevNote = async function(projId, docId) {
+      const proj = allProjects.find(p => p.id === projId);
+      const code = proj ? (proj.projectCode || projId) : projId;
+      const date = fmtDate(docId);
+      if (!confirm(`Delete meeting notes for ${code} dated ${date}? This cannot be undone.`)) return;
+      try {
+        await deleteDoc(doc(db, "projects", projId, "meetingnotes", docId));
+        document.getElementById(`prev-note-${projId}-${docId}`)?.remove();
+        const container = document.getElementById(`prev-content-${projId}`);
+        if (container && container.children.length === 0)
+          container.innerHTML = `<div style="color:#6B7280;font-size:13px;padding-top:8px">No previous notes.</div>`;
+      } catch (err) {
+        alert("Delete failed: " + err.message);
+      }
+    };
+
+    // ── Record Preliminary Agreement ──────────────────────────────────────────
+    window.togglePrelimPanel = function(projId) {
+      document.getElementById(`prelim-panel-${projId}`)?.classList.toggle("open");
+    };
+
+    window.confirmPrelim = async function(projId) {
+      const dateVal = document.getElementById(`pcf-prelim-date-${projId}`)?.value;
+      const feeVal  = document.getElementById(`pcf-prelim-fee-${projId}`)?.value;
+      const btn     = document.getElementById(`pcf-prelim-btn-${projId}`);
+      const msgEl   = document.getElementById(`prelim-msg-${projId}`);
+      const errEl   = document.getElementById(`prelim-err-${projId}`);
+      if (!dateVal) { if (errEl) { errEl.textContent = "Please enter the agreement date."; errEl.style.display = "inline"; } return; }
+      btn.disabled = true; btn.innerHTML = '<span class="spinner-sm"></span> Saving…';
+      try {
+        await updateDoc(doc(db, "projects", projId), {
+          preliminaryDate:  dateVal,
+          preliminaryFeeGST:feeVal ? parseFloat(feeVal) : null,
+          projectPhase:     "Preliminaries",
+          updatedAt:        serverTimestamp()
+        });
+        if (msgEl) { msgEl.textContent = "✓ Moved to Preliminaries"; msgEl.style.display = "inline"; }
+        // Remove from Sales section and re-render after short delay
+        setTimeout(() => {
+          const p = allProjects.find(x => x.id === projId);
+          if (p) {
+            p.projectPhase   = "Preliminaries";
+            p.preliminaryDate= dateVal;
+            p._phase         = derivePhase(p);
+          }
+          renderBoard();
+          allProjects.forEach(p => {
+            loadTodayNotes(p.id);
+            loadPrevNotes(p.id);
+            loadClaimScheduleStatus(p.id, p.likelihoodPct||0);
+          });
+        }, 1200);
+      } catch (err) {
+        btn.disabled = false; btn.innerHTML = "Confirm — Move to Preliminaries";
+        if (errEl) { errEl.textContent = "Failed: " + err.message; errEl.style.display = "inline"; }
+      }
+    };
+
+    // ── Meeting date picker ───────────────────────────────────────────────────
+    document.getElementById("meeting-date-input").addEventListener("change", async function() {
+      meetingDate = this.value;
+      document.getElementById("meeting-date-display").textContent = fmtDate(meetingDate);
+      await Promise.all(allProjects.map(p => loadTodayNotes(p.id, p._phase)));
+    });
+
+    // ── Nav + auth ────────────────────────────────────────────────────────────
+    initNav({
+      pageId:       "sales-meeting-notes",
+      allowedRoles: [],
+      onReady: async (user, role) => {
+        currentUser = user;
+        currentRole = role;
+        document.getElementById("meeting-date-display").textContent = fmtDate(meetingDate);
+        document.getElementById("meeting-date-input").value = meetingDate;
+        try {
+          await loadAll();
+        } catch (err) {
+          document.getElementById("board").innerHTML =
+            `<div style="color:#9B2335;padding:24px;font-size:14px">Failed to load: ${err.message}</div>`;
+        }
+      }
+    });
+  </script>
+</body>
+</html>

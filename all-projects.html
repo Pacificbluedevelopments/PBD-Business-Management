@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>All Projects — Pacific Blue</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Page-specific styles ── */
+
+    /* Summary strip */
+    .summary-strip {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .summary-chip {
+      background: #fff;
+      border: 1px solid #E5E3E0;
+      border-radius: 8px;
+      padding: 10px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 110px;
+    }
+    .summary-chip-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .summary-chip-value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333F48;
+    }
+
+    /* Phase badges — per spec */
+    .ph { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .ph-sales         { background: #F5F4F2; color: #6B7280; }
+    .ph-preliminaries { background: #EBF4FB; color: #1A5276; }
+    .ph-construction  { background: #FEF9E7; color: #B7791F; }
+    .ph-pc            { background: #EAF5EF; color: #1A7A4A; }
+    .ph-completed     { background: #EAFAF1; color: #2D6A4F; }
+    .ph-onhold        { background: #FDEDEC; color: #9B2335; }
+    .ph-cancelled     { background: #F5F4F2; color: #9CA3AF; }
+
+    /* Likelihood colour coding */
+    .lh-high   { color: #2D6A4F; font-weight: 600; }
+    .lh-medium { color: #B7791F; font-weight: 600; }
+    .lh-low    { color: #9B2335; font-weight: 600; }
+
+    /* Clickable rows */
+    tbody tr.proj-row { cursor: pointer; }
+    tbody tr.proj-row:hover { background: #F5F4F2 !important; }
+
+    /* Delete button */
+    .btn-soft-delete {
+      padding: 3px 9px;
+      background: transparent;
+      border: 1px solid #E5E3E0;
+      border-radius: 5px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      color: #9B2335;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .btn-soft-delete:hover { background: #FDEDF0; border-color: #F1B9C0; }
+
+    /* Supervisor filter — populated dynamically */
+    .summary-line { font-size: 13px; color: #6B7280; margin-bottom: 10px; }
+    .summary-line strong { color: #333F48; }
+
+    /* Delete confirm modal */
+    .delete-modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+    }
+    .delete-modal-overlay.open { display: flex; }
+    .delete-modal {
+      background: #fff;
+      border-radius: 10px;
+      padding: 28px;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+    }
+    .delete-modal h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #333F48;
+      margin-bottom: 10px;
+    }
+    .delete-modal p {
+      font-size: 13px;
+      color: #6B7280;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .delete-modal-actions { display: flex; gap: 8px; }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 60px 24px;
+      color: #6B7280;
+      font-size: 14px;
+    }
+    .empty-state strong { display: block; font-size: 16px; color: #333F48; margin-bottom: 8px; }
+
+    @media (max-width: 768px) {
+      .summary-strip { gap: 8px; }
+      .summary-chip  { min-width: 90px; padding: 8px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1 class="page-title">All Projects</h1>
+        <p class="page-subtitle">Project register — search, view, and correct records</p>
+      </div>
+
+      <!-- Summary chips -->
+      <div class="summary-strip" id="summary-strip">
+        <div class="summary-chip">
+          <div class="summary-chip-label">Total</div>
+          <div class="summary-chip-value" id="chip-total">—</div>
+        </div>
+        <div class="summary-chip">
+          <div class="summary-chip-label">Sales</div>
+          <div class="summary-chip-value" id="chip-sales">—</div>
+        </div>
+        <div class="summary-chip">
+          <div class="summary-chip-label">Prelim</div>
+          <div class="summary-chip-value" id="chip-prelim">—</div>
+        </div>
+        <div class="summary-chip">
+          <div class="summary-chip-label">Construction</div>
+          <div class="summary-chip-value" id="chip-construction">—</div>
+        </div>
+        <div class="summary-chip">
+          <div class="summary-chip-label">Completed</div>
+          <div class="summary-chip-value" id="chip-completed">—</div>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <div class="filter-group grow">
+          <label>Search</label>
+          <input class="form-input" type="text" id="filter-search"
+            placeholder="Client name or address…" />
+        </div>
+        <div class="filter-group">
+          <label>Phase</label>
+          <div class="form-select-wrap">
+            <select class="form-select" id="filter-phase">
+              <option value="">All Phases</option>
+              <option value="Sales">Sales</option>
+              <option value="Preliminaries">Preliminaries</option>
+              <option value="Construction">Construction</option>
+              <option value="Practical Completion">Practical Completion</option>
+              <option value="Completed">Completed</option>
+              <option value="On Hold">On Hold</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+        <div class="filter-group">
+          <label>Supervisor</label>
+          <div class="form-select-wrap">
+            <select class="form-select" id="filter-supervisor">
+              <option value="">All Supervisors</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-secondary" id="btn-clear">Clear</button>
+      </div>
+
+      <!-- Result count -->
+      <div class="summary-line" id="result-line">Loading…</div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table id="projects-table">
+          <thead>
+            <tr>
+              <th>Project Code</th>
+              <th>Client Name</th>
+              <th>Address</th>
+              <th>Phase</th>
+              <th>Supervisor</th>
+              <th>Contract Value (ex GST)</th>
+              <th>Likelihood</th>
+              <th>Commence</th>
+              <th id="actions-col-header" style="display:none"></th>
+            </tr>
+          </thead>
+          <tbody id="projects-tbody">
+            <tr>
+              <td colspan="9" style="text-align:center;padding:48px;color:#6B7280">
+                Loading projects…
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Soft-delete confirm modal (Directors only) -->
+  <div class="delete-modal-overlay" id="delete-modal">
+    <div class="delete-modal">
+      <h3>Archive Project?</h3>
+      <p id="delete-modal-body">
+        This will soft-delete the project record. It will no longer appear in
+        any lists or reports. The record is not permanently removed and can be
+        restored from the database. Are you sure?
+      </p>
+      <div class="delete-modal-actions">
+        <button class="btn btn-danger" id="confirm-delete-btn">Archive Project</button>
+        <button class="btn btn-secondary" id="cancel-delete-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="sidebar-hamburger" aria-label="Open menu">☰</button>
+  <div id="sidebar-overlay"></div>
+
+  <script type="module">
+    import { initNav }   from "./nav.js";
+    import { db }        from "./firebase-config.js";
+    import {
+      collection, getDocs, doc, updateDoc,
+      query, orderBy, serverTimestamp, where
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let allProjects   = [];   // all non-deleted projects
+    let staffMap      = {};   // uid → staffmember data
+    let currentRole   = null;
+
+    // Delete modal state
+    let pendingDeleteId   = null;
+    let pendingDeleteCode = null;
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const tbody       = document.getElementById("projects-tbody");
+    const resultLine  = document.getElementById("result-line");
+    const filterSearch= document.getElementById("filter-search");
+    const filterPhase = document.getElementById("filter-phase");
+    const filterSup   = document.getElementById("filter-supervisor");
+    const btnClear    = document.getElementById("btn-clear");
+    const deleteModal = document.getElementById("delete-modal");
+    const confirmBtn  = document.getElementById("confirm-delete-btn");
+    const cancelBtn   = document.getElementById("cancel-delete-btn");
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function fmtCurrency(v) {
+      if (v === null || v === undefined || v === "") return "—";
+      return "$" + Number(v).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+    }
+    function fmtMonth(iso) {
+      if (!iso) return "—";
+      const mn = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const p  = iso.split("-");
+      if (p.length < 2) return iso;
+      return mn[parseInt(p[1], 10) - 1] + " " + p[0];
+    }
+    function supName(id) {
+      if (!id) return "—";
+      const s = staffMap[id];
+      return s ? `${s.firstName||""} ${s.lastName||""}`.trim() || "—" : "—";
+    }
+    function esc(s) {
+      return String(s||"")
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    // ── Phase calculation — derived from milestone fields ─────────────────────
+    // Priority: cancelledAt > onHoldAt > completedAt > pcClaimIssued >
+    //           contractDate > preliminaryDate > (default) Sales
+    function derivePhase(p) {
+      if (p.cancelledAt)    return "Cancelled";
+      if (p.onHoldAt)       return "On Hold";
+      if (p.completedAt)    return "Completed";
+      if (p.pcClaimIssued)  return "Practical Completion";
+      if (p.contractDate)   return "Construction";
+      if (p.preliminaryDate)return "Preliminaries";
+      return "Sales";
+    }
+
+    function phaseBadge(phase) {
+      const map = {
+        "Sales":                "ph ph-sales",
+        "Preliminaries":        "ph ph-preliminaries",
+        "Construction":         "ph ph-construction",
+        "Practical Completion": "ph ph-pc",
+        "Completed":            "ph ph-completed",
+        "On Hold":              "ph ph-onhold",
+        "Cancelled":            "ph ph-cancelled",
+      };
+      const cls = map[phase] || "ph ph-sales";
+      return `<span class="${cls}">${esc(phase)}</span>`;
+    }
+
+    function lhClass(pct) {
+      if (pct >= 70) return "lh-high";
+      if (pct >= 40) return "lh-medium";
+      return "lh-low";
+    }
+
+    // ── Load ──────────────────────────────────────────────────────────────────
+    async function loadAll() {
+      // Load staff for name lookup + supervisor filter
+      const staffSnap = await getDocs(collection(db, "staffmembers"));
+      staffSnap.forEach(d => { staffMap[d.id] = d.data(); });
+
+      // Populate supervisor filter
+      const sups = [];
+      staffSnap.forEach(d => {
+        const s = d.data();
+        if (s.isActive !== false)
+          sups.push({ id: d.id, name: `${s.firstName||""} ${s.lastName||""}`.trim() });
+      });
+      sups.sort((a, b) => a.name.localeCompare(b.name));
+      sups.forEach(s => {
+        const o = document.createElement("option");
+        o.value = s.id;
+        o.textContent = s.name;
+        filterSup.appendChild(o);
+      });
+
+      // Load all non-deleted projects
+      const snap = await getDocs(
+        query(collection(db, "projects"), orderBy("projectCode", "asc"))
+      );
+      allProjects = [];
+      snap.forEach(d => {
+        const p = d.data();
+        if (p.deletedAt) return;   // soft-deleted — exclude
+        allProjects.push({ id: d.id, ...p, _phase: derivePhase(p) });
+      });
+
+      updateSummaryChips();
+      renderTable();
+    }
+
+    // ── Summary chips ─────────────────────────────────────────────────────────
+    function updateSummaryChips() {
+      const count = p => allProjects.filter(x => x._phase === p).length;
+      document.getElementById("chip-total").textContent        = allProjects.length;
+      document.getElementById("chip-sales").textContent        = count("Sales");
+      document.getElementById("chip-prelim").textContent       = count("Preliminaries");
+      document.getElementById("chip-construction").textContent = count("Construction");
+      document.getElementById("chip-completed").textContent    = count("Completed");
+    }
+
+    // ── Filter ────────────────────────────────────────────────────────────────
+    function getFiltered() {
+      const search = filterSearch.value.trim().toLowerCase();
+      const phase  = filterPhase.value;
+      const supId  = filterSup.value;
+
+      return allProjects.filter(p => {
+        if (phase && p._phase !== phase) return false;
+        if (supId && p.supervisorId !== supId) return false;
+        if (search) {
+          const name = ((p.clientFirstName||"")+" "+(p.clientLastName||"")).toLowerCase();
+          const addr = (p.projectAddress||"").toLowerCase();
+          const code = (p.projectCode||"").toLowerCase();
+          if (!name.includes(search) && !addr.includes(search) && !code.includes(search)) return false;
+        }
+        return true;
+      });
+    }
+
+    // ── Render table ──────────────────────────────────────────────────────────
+    function renderTable() {
+      const filtered = getFiltered();
+      const total    = allProjects.length;
+
+      resultLine.innerHTML = `Showing <strong>${filtered.length}</strong> of <strong>${total}</strong> project${total !== 1 ? "s" : ""}`;
+
+      // Show/hide director-only actions column header
+      const actHdr = document.getElementById("actions-col-header");
+      if (actHdr) actHdr.style.display = currentRole === "director" ? "" : "none";
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr><td colspan="9">
+            <div class="empty-state">
+              <strong>${total === 0 ? "No projects found" : "No projects match the current filters"}</strong>
+              ${total === 0 ? "Projects are created from qualified leads in the Sales section." : "Try clearing the filters."}
+            </div>
+          </td></tr>`;
+        return;
+      }
+
+      const colSpan = currentRole === "director" ? 9 : 8;
+      tbody.innerHTML = filtered.map(p => {
+        const pct      = p.likelihoodPct !== undefined ? Math.round((p.likelihoodPct || 0) * 100) : null;
+        const lhHtml   = pct !== null
+          ? `<span class="${lhClass(pct)}">${pct}%</span>`
+          : "—";
+        const name     = ((p.clientFirstName||"")+" "+(p.clientLastName||"")).trim() || "—";
+        const valueExGST = p.contractValueExGST ?? (p.contractValueGST ? p.contractValueGST / 1.1 : null);
+        const deleteBtn = currentRole === "director"
+          ? `<td><button class="btn-soft-delete" data-id="${p.id}" data-code="${esc(p.projectCode||p.id)}"
+               onclick="openDeleteModal(event,'${p.id}','${esc(p.projectCode||p.id)}')">Archive</button></td>`
+          : "";
+
+        return `
+          <tr class="proj-row" onclick="goToProject('${p.id}')">
+            <td><strong>${esc(p.projectCode||"—")}</strong></td>
+            <td>${esc(name)}</td>
+            <td class="muted">${esc(p.projectAddress||"—")}</td>
+            <td>${phaseBadge(p._phase)}</td>
+            <td>${esc(supName(p.supervisorId))}</td>
+            <td>${fmtCurrency(valueExGST)}</td>
+            <td>${lhHtml}</td>
+            <td class="muted">${fmtMonth(p.expectedCommencementMonth)}</td>
+            ${deleteBtn}
+          </tr>`;
+      }).join("");
+    }
+
+    // ── Navigation ────────────────────────────────────────────────────────────
+    window.goToProject = function(id) {
+      window.location.href = `project-detail.html?projectId=${id}`;
+    };
+
+    // ── Soft delete (Directors only) ──────────────────────────────────────────
+    window.openDeleteModal = function(e, id, code) {
+      e.stopPropagation();   // prevent row click navigating away
+      pendingDeleteId   = id;
+      pendingDeleteCode = code;
+      document.getElementById("delete-modal-body").textContent =
+        `"${code}" will be soft-archived and removed from all lists and reports. The record is not permanently erased.`;
+      deleteModal.classList.add("open");
+    };
+
+    cancelBtn.addEventListener("click", () => {
+      deleteModal.classList.remove("open");
+      pendingDeleteId = pendingDeleteCode = null;
+    });
+    deleteModal.addEventListener("click", e => {
+      if (e.target === deleteModal) {
+        deleteModal.classList.remove("open");
+        pendingDeleteId = pendingDeleteCode = null;
+      }
+    });
+
+    confirmBtn.addEventListener("click", async () => {
+      if (!pendingDeleteId) return;
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = "Archiving…";
+      try {
+        await updateDoc(doc(db, "projects", pendingDeleteId), {
+          deletedAt: serverTimestamp()
+        });
+        // Remove from local array and re-render
+        allProjects = allProjects.filter(p => p.id !== pendingDeleteId);
+        updateSummaryChips();
+        renderTable();
+        deleteModal.classList.remove("open");
+        pendingDeleteId = pendingDeleteCode = null;
+      } catch (err) {
+        alert("Archive failed: " + err.message);
+      } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "Archive Project";
+      }
+    });
+
+    // ── Filter listeners ──────────────────────────────────────────────────────
+    filterSearch.addEventListener("input",   renderTable);
+    filterPhase.addEventListener("change",   renderTable);
+    filterSup.addEventListener("change",     renderTable);
+    btnClear.addEventListener("click", () => {
+      filterSearch.value = "";
+      filterPhase.value  = "";
+      filterSup.value    = "";
+      renderTable();
+    });
+
+    // ── initNav ───────────────────────────────────────────────────────────────
+    initNav({
+      pageId:       "all-projects",
+      allowedRoles: [],
+      onReady: async (user, role) => {
+        currentRole = role;
+        // Show actions column header for directors immediately
+        const actHdr = document.getElementById("actions-col-header");
+        if (actHdr && role === "director") actHdr.style.display = "";
+        try {
+          await loadAll();
+        } catch (err) {
+          tbody.innerHTML = `
+            <tr><td colspan="9" style="padding:32px;color:#9B2335;text-align:center">
+              Failed to load projects: ${esc(err.message)}
+            </td></tr>`;
+        }
+      }
+    });
+  </script>
+</body>
+</html>

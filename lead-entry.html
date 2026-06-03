@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Lead — Pacific Blue</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Page-specific overrides ── */
+    .form-section { margin-bottom: 24px; }
+    .section-label {
+      font-size: 11px; font-weight: 600; color: #B7B09C;
+      text-transform: uppercase; letter-spacing: 1.5px;
+      margin-bottom: 14px; display: block;
+    }
+    .field-error { display: none; font-size: 11px; color: #9B2335; margin-top: 3px; }
+    .field-error.show { display: block; }
+    .form-input.error, .form-select.error { border-color: #9B2335; }
+    .success-banner {
+      display: none; align-items: center; gap: 10px;
+      padding: 14px 18px; background: #EAF5EF;
+      border: 1px solid #B2DFCC; border-radius: 8px;
+      color: #2D6A4F; font-size: 13px; font-weight: 500;
+      margin-bottom: 20px;
+    }
+    .success-banner .success-icon { font-size: 18px; }
+    .form-actions { display: flex; gap: 10px; align-items: center; padding-top: 8px; }
+    @media print { #sidebar, #sidebar-hamburger, #sidebar-overlay, .form-actions { display: none; } }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1 class="page-title">New Lead</h1>
+        <p class="page-subtitle">Record a new enquiry</p>
+      </div>
+
+      <!-- Success banner -->
+      <div class="success-banner" id="banner-success">
+        <span class="success-icon">✓</span>
+        <span id="banner-success-msg"></span>
+      </div>
+
+      <!-- Error alert -->
+      <div class="alert alert-danger" id="alert-error" style="margin-bottom:20px">
+        <span id="alert-error-msg"></span>
+      </div>
+
+      <form id="lead-form" onsubmit="return false">
+
+        <!-- Section 1 — Enquiry Details -->
+        <div class="card form-section">
+          <span class="section-label">Enquiry Details</span>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Enquiry Date <span class="required">*</span></label>
+              <input class="form-input" type="date" id="enquiryDate" />
+              <span class="field-error" id="err-enquiryDate">Please enter the enquiry date.</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Lead Source</label>
+              <div class="form-select-wrap">
+                <select class="form-select" id="leadSource">
+                  <option value="">— Select source —</option>
+                  <option>Google</option><option>Facebook</option><option>Instagram</option>
+                  <option>Signage</option><option>Referral-Client</option>
+                  <option>Referral-Professional</option><option>Word of Mouth</option>
+                  <option>Repeat</option><option>Mailchimp</option><option>ChatGPT</option>
+                  <option>QR</option><option>Programmatic</option>
+                  <option>Direct</option><option>Walk-In</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Form of Contact</label>
+              <div class="form-select-wrap">
+                <select class="form-select" id="formOfContact">
+                  <option value="">— Select —</option>
+                  <option>Phone</option><option>Email</option><option>Walk-In</option>
+                  <option>Online Form</option><option>Referral Introduction</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Qualified Status</label>
+              <div class="form-select-wrap">
+                <select class="form-select" id="qualifiedStatus">
+                  <option value="TBD" selected>TBD</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2 — Contact Details -->
+        <div class="card form-section">
+          <span class="section-label">Contact Details</span>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">First Name <span class="required">*</span></label>
+              <input class="form-input" type="text" id="firstName" placeholder="e.g. Jane" autocomplete="off" />
+              <span class="field-error" id="err-firstName">Please enter a first name.</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Last Name <span class="required">*</span></label>
+              <input class="form-input" type="text" id="lastName" placeholder="e.g. Smith" autocomplete="off" />
+              <span class="field-error" id="err-lastName">Please enter a last name.</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone</label>
+              <input class="form-input" type="tel" id="phone" placeholder="e.g. 0412 345 678" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input class="form-input" type="email" id="email" placeholder="jane@example.com" autocomplete="off" />
+            </div>
+            <div class="form-group span-2">
+              <span class="field-error show" id="err-contact" style="display:none">Please enter at least a phone number or email address.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3 — Project Details -->
+        <div class="card form-section">
+          <span class="section-label">Project Details</span>
+          <div class="form-grid">
+            <div class="form-group span-2">
+              <label class="form-label">Project Address</label>
+              <input class="form-input" type="text" id="projectAddress"
+                placeholder="e.g. 12 Ocean Drive, Noosa Heads, QLD, 4567" autocomplete="off" />
+              <span class="form-hint">Format: Street Number Street Name, Suburb, State, Postcode</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Project Type</label>
+              <div class="form-select-wrap">
+                <select class="form-select" id="projectType">
+                  <option value="">— Select type —</option>
+                  <option>New Build</option><option>KDRB</option><option>Duplex</option>
+                  <option>Granny Flat</option><option>Renovation</option>
+                  <option>Commercial</option><option>Extension</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Estimated Budget (ex GST)</label>
+              <div class="currency-wrap">
+                <span class="currency-sym">$</span>
+                <input class="form-input" type="number" id="estimatedBudget"
+                  min="0" step="10000" placeholder="e.g. 450000" style="padding-left:26px" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4 — Additional -->
+        <div class="card form-section">
+          <span class="section-label">Additional Notes</span>
+          <div class="form-grid">
+            <div class="form-group span-2">
+              <label class="form-label">Project Description</label>
+              <textarea class="form-textarea" id="projectDescription"
+                placeholder="Brief description of the project…"></textarea>
+            </div>
+            <div class="form-group span-2">
+              <label class="form-label">Qualification Notes</label>
+              <textarea class="form-textarea" id="qualificationNotes"
+                placeholder="Notes on why this lead is or isn't qualified…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="form-actions">
+          <button class="btn btn-primary btn-lg" id="btn-save" type="button">Save Lead</button>
+          <button class="btn btn-secondary btn-lg" id="btn-clear" type="button">Clear Form</button>
+        </div>
+
+      </form>
+    </main>
+  </div>
+
+  <button id="sidebar-hamburger" aria-label="Open menu">☰</button>
+  <div id="sidebar-overlay"></div>
+
+  <script type="module">
+    import { initNav }    from "./nav.js";
+    import { db }        from "./firebase-config.js";
+    import {
+      collection, addDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    let currentUser = null;
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const btnSave        = document.getElementById("btn-save");
+    const btnClear       = document.getElementById("btn-clear");
+    const bannerSuccess  = document.getElementById("banner-success");
+    const bannerMsg      = document.getElementById("banner-success-msg");
+    const alertError     = document.getElementById("alert-error");
+    const alertErrorMsg  = document.getElementById("alert-error-msg");
+
+    // ── Set today's date ──────────────────────────────────────────────────────
+    document.getElementById("enquiryDate").value = new Date().toISOString().split("T")[0];
+
+    // ── Australian FY helpers ─────────────────────────────────────────────────
+    function getFiscalYear(dateStr) {
+      const d = new Date(dateStr);
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      if (month >= 7) return `${year}-${String(year + 1).slice(2)}`;
+      return `${year - 1}-${String(year).slice(2)}`;
+    }
+
+    function getReportingPeriod(dateStr) {
+      const d = new Date(dateStr);
+      const month = d.getMonth() + 1;
+      const fy = getFiscalYear(dateStr);
+      let q;
+      if (month >= 7  && month <= 9)  q = "Q1";
+      else if (month >= 10)           q = "Q2";
+      else if (month <= 3)            q = "Q3";
+      else                            q = "Q4";
+      return `${q} ${fy}`;
+    }
+
+    function parseAddress(address) {
+      if (!address) return { projectSuburb: "", projectState: "" };
+      const parts = address.split(",").map(p => p.trim());
+      return { projectSuburb: parts[1] || "", projectState: parts[2] || "" };
+    }
+
+    // ── Validation ────────────────────────────────────────────────────────────
+    function validate() {
+      let valid = true;
+
+      function check(fieldId, errId, hasError) {
+        const f = document.getElementById(fieldId);
+        const e = document.getElementById(errId);
+        f.classList.toggle("error", hasError);
+        e.style.display = hasError ? "block" : "none";
+        if (hasError) valid = false;
+      }
+
+      check("enquiryDate", "err-enquiryDate", !document.getElementById("enquiryDate").value);
+      check("firstName",   "err-firstName",   !document.getElementById("firstName").value.trim());
+      check("lastName",    "err-lastName",     !document.getElementById("lastName").value.trim());
+
+      const noContact = !document.getElementById("phone").value.trim() &&
+                        !document.getElementById("email").value.trim();
+      document.getElementById("phone").classList.toggle("error", noContact);
+      document.getElementById("email").classList.toggle("error", noContact);
+      document.getElementById("err-contact").style.display = noContact ? "block" : "none";
+      if (noContact) valid = false;
+
+      return valid;
+    }
+
+    // ── Reset form ────────────────────────────────────────────────────────────
+    let successTimer = null;
+    function resetForm() {
+      document.querySelectorAll(".form-input, .form-select, .form-textarea").forEach(el => {
+        if (el.tagName === "SELECT") {
+          el.selectedIndex = 0;
+          if (el.id === "qualifiedStatus") el.value = "TBD";
+        } else {
+          el.value = "";
+        }
+        el.classList.remove("error");
+      });
+      document.querySelectorAll(".field-error").forEach(el => { el.style.display = "none"; });
+      document.getElementById("enquiryDate").value = new Date().toISOString().split("T")[0];
+    }
+
+    // ── Save ──────────────────────────────────────────────────────────────────
+    async function handleSave() {
+      alertError.classList.remove("show");
+
+      if (!validate()) {
+        alertErrorMsg.textContent = "Please fill in all required fields before saving.";
+        alertError.classList.add("show");
+        return;
+      }
+
+      btnSave.disabled = true;
+      btnSave.innerHTML = '<span class="spinner-sm"></span> Saving…';
+
+      try {
+        const enquiryDate = document.getElementById("enquiryDate").value;
+        const address     = document.getElementById("projectAddress").value.trim();
+        const { projectSuburb, projectState } = parseAddress(address);
+        const budgetVal   = document.getElementById("estimatedBudget").value;
+
+        const leadData = {
+          enquiryDate,
+          fiscalYear:            getFiscalYear(enquiryDate),
+          reportingPeriod:       getReportingPeriod(enquiryDate),
+          firstName:             document.getElementById("firstName").value.trim(),
+          lastName:              document.getElementById("lastName").value.trim(),
+          phone:                 document.getElementById("phone").value.trim(),
+          email:                 document.getElementById("email").value.trim(),
+          leadSource:            document.getElementById("leadSource").value,
+          formOfContact:         document.getElementById("formOfContact").value,
+          qualifiedStatus:       document.getElementById("qualifiedStatus").value,
+          qualificationNotes:    document.getElementById("qualificationNotes").value.trim(),
+          projectAddress:        address,
+          projectSuburb,
+          projectState,
+          projectType:           document.getElementById("projectType").value,
+          estimatedBudget:       budgetVal ? parseFloat(budgetVal) : null,
+          projectDescription:    document.getElementById("projectDescription").value.trim(),
+          nonConversionReason:   "",
+          openLeadStatus:        true,
+          assignedSalesPersonId: currentUser.uid,
+          createdAt:             serverTimestamp(),
+          updatedAt:             serverTimestamp(),
+          createdBy:             currentUser.uid
+        };
+
+        await addDoc(collection(db, "leads"), leadData);
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        bannerMsg.textContent = `Lead saved for ${leadData.firstName} ${leadData.lastName} — ${leadData.fiscalYear} · ${leadData.reportingPeriod}`;
+        bannerSuccess.style.display = "flex";
+        if (successTimer) clearTimeout(successTimer);
+        successTimer = setTimeout(() => {
+          bannerSuccess.style.display = "none";
+          resetForm();
+        }, 5000);
+
+      } catch (err) {
+        alertErrorMsg.textContent = "Failed to save lead: " + err.message;
+        alertError.classList.add("show");
+      } finally {
+        btnSave.disabled = false;
+        btnSave.innerHTML = "Save Lead";
+      }
+    }
+
+    btnSave.addEventListener("click", handleSave);
+    btnClear.addEventListener("click", () => {
+      resetForm();
+      bannerSuccess.style.display = "none";
+      alertError.classList.remove("show");
+      if (successTimer) { clearTimeout(successTimer); successTimer = null; }
+    });
+
+    initNav({
+      pageId:       "lead-entry",
+      allowedRoles: [],
+      onReady: async (user, role) => {
+        currentUser = user;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team Setup — Pacific Blue</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Role badges ── */
+    .role-director   { background:#333F48;color:#fff; }
+    .role-sales      { background:#EBF4FB;color:#1A5276; }
+    .role-supervisor { background:#FEF9E7;color:#B7791F; }
+    .role-accounts   { background:#EAF5EF;color:#2D6A4F; }
+
+    /* ── Status badges ── */
+    .status-active   { background:#EAF5EF;color:#2D6A4F;border:1px solid #B2DFCC; }
+    .status-inactive { background:#F5F4F2;color:#9CA3AF;border:1px solid #E5E3E0; }
+
+    /* ── Invite form card ── */
+    .invite-card {
+      background:#fff;border:1px solid #E5E3E0;border-radius:10px;
+      padding:24px;margin-bottom:20px;
+    }
+    .invite-card-title {
+      font-size:14px;font-weight:600;color:#333F48;
+      margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;
+    }
+
+    /* ── Inline messages ── */
+    .msg { display:none;padding:11px 14px;border-radius:6px;font-size:13px;margin-top:12px; }
+    .msg.show { display:block; }
+    .msg-success { background:#EAF5EF;border:1px solid #B2DFCC;color:#2D6A4F; }
+    .msg-warning { background:#FEF3E2;border:1px solid #F6D860;color:#B7791F; }
+    .msg-error   { background:#FDEDF0;border:1px solid #F1B9C0;color:#9B2335; }
+
+    /* ── Action buttons in table ── */
+    .btn-deactivate {
+      padding:3px 10px;font-family:'Poppins',sans-serif;font-size:11px;font-weight:500;
+      border-radius:5px;cursor:pointer;border:1px solid #E5E3E0;background:#F5F4F2;
+      color:#9B2335;transition:background 0.15s;
+    }
+    .btn-deactivate:hover { background:#FDEDF0;border-color:#F1B9C0; }
+    .btn-reactivate {
+      padding:3px 10px;font-family:'Poppins',sans-serif;font-size:11px;font-weight:500;
+      border-radius:5px;cursor:pointer;border:1px solid #B2DFCC;background:#EAF5EF;
+      color:#2D6A4F;transition:background 0.15s;
+    }
+    .btn-reactivate:hover { background:#D4EFDF; }
+
+    .spinner-sm {
+      display:inline-block;width:12px;height:12px;
+      border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;
+      border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .section-divider { margin:28px 0 20px;border:none;border-top:1px solid #E5E3E0; }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1 class="page-title">Team Setup</h1>
+        <p class="page-subtitle">Manage team members and user accounts — Directors only</p>
+      </div>
+
+      <!-- ── SECTION 1: Active Staff ────────────────────────────────────────── -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <span class="card-title">Active Team Members</span>
+          <span id="active-count" style="font-size:13px;color:#6B7280"></span>
+        </div>
+        <div class="table-wrap" style="border:none;border-radius:0">
+          <table id="staff-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="staff-tbody">
+              <tr><td colspan="5" style="text-align:center;padding:32px;color:#6B7280">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── SECTION 2: Invite New Team Member ─────────────────────────────── -->
+      <div class="invite-card">
+        <div class="invite-card-title">
+          Invite New Team Member
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">First Name <span style="color:#B7B09C">*</span></label>
+            <input class="form-input" type="text" id="inv-firstName" placeholder="e.g. Sarah" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name <span style="color:#B7B09C">*</span></label>
+            <input class="form-input" type="text" id="inv-lastName" placeholder="e.g. Johnson" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address <span style="color:#B7B09C">*</span></label>
+            <input class="form-input" type="email" id="inv-email" placeholder="sarah@example.com" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role <span style="color:#B7B09C">*</span></label>
+            <div class="form-select-wrap">
+              <select class="form-select" id="inv-role">
+                <option value="">— Select role —</option>
+                <option value="director">Director</option>
+                <option value="sales">Sales</option>
+                <option value="supervisor">Supervisor</option>
+                <option value="accounts">Accounts</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Temporary Password <span style="color:#B7B09C">*</span></label>
+            <input class="form-input" type="password" id="inv-password" placeholder="Min. 8 characters" autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input class="form-input" type="tel" id="inv-phone" placeholder="e.g. 0412 345 678" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <input class="form-input" type="date" id="inv-startDate" />
+          </div>
+        </div>
+
+        <div style="margin-top:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" id="btn-invite">Add Team Member</button>
+          <button class="btn btn-secondary" id="btn-clear-inv">Clear</button>
+        </div>
+
+        <div class="msg msg-success" id="inv-success"></div>
+        <div class="msg msg-warning" id="inv-warning"></div>
+        <div class="msg msg-error"   id="inv-error"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <button id="sidebar-hamburger" aria-label="Open menu">☰</button>
+  <div id="sidebar-overlay"></div>
+
+  <script type="module">
+    import { initNav }   from "./nav.js";
+    import { db, auth }  from "./firebase-config.js";
+    import {
+      collection, getDocs, doc, updateDoc, setDoc, query, orderBy, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── Constants ─────────────────────────────────────────────────────────────
+    const CREATE_USER_URL =
+      "https://australia-southeast1-pbd-business-management.cloudfunctions.net/createUser";
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let allStaff = [];
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const staffTbody  = document.getElementById("staff-tbody");
+    const activeCount = document.getElementById("active-count");
+    const btnInvite   = document.getElementById("btn-invite");
+    const btnClear    = document.getElementById("btn-clear-inv");
+    const invSuccess  = document.getElementById("inv-success");
+    const invWarning  = document.getElementById("inv-warning");
+    const invError    = document.getElementById("inv-error");
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function esc(s) {
+      return String(s||"")
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+    function roleBadge(role) {
+      const cls = {director:"role-director",sales:"role-sales",supervisor:"role-supervisor",accounts:"role-accounts"}[role]||"role-accounts";
+      return `<span class="badge ${cls}" style="text-transform:capitalize">${esc(role||"—")}</span>`;
+    }
+    function statusBadge(isActive) {
+      return isActive
+        ? `<span class="badge status-active">Active</span>`
+        : `<span class="badge status-inactive">Inactive</span>`;
+    }
+    function clearMessages() {
+      [invSuccess, invWarning, invError].forEach(el => { el.textContent=""; el.classList.remove("show"); });
+    }
+
+    // ── Load staff ────────────────────────────────────────────────────────────
+    async function loadStaff() {
+      try {
+        const snap = await getDocs(query(collection(db, "staffmembers"), orderBy("lastName","asc")));
+        allStaff = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderStaff();
+      } catch (err) {
+        staffTbody.innerHTML = `<tr><td colspan="5" style="color:#9B2335;padding:24px">Failed to load: ${esc(err.message)}</td></tr>`;
+      }
+    }
+
+    function renderStaff() {
+      const active   = allStaff.filter(s => s.isActive !== false);
+      const inactive = allStaff.filter(s => s.isActive === false);
+      const sorted   = [...active, ...inactive];
+
+      activeCount.textContent = `${active.length} active · ${inactive.length} inactive`;
+
+      if (!sorted.length) {
+        staffTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:#6B7280">No team members yet.</td></tr>`;
+        return;
+      }
+
+      staffTbody.innerHTML = sorted.map(s => {
+        const isActive = s.isActive !== false;
+        const name     = `${s.firstName||""} ${s.lastName||""}`.trim() || "—";
+        const actionBtn = isActive
+          ? `<button class="btn-deactivate" onclick="toggleActive('${s.id}',false)">Deactivate</button>`
+          : `<button class="btn-reactivate" onclick="toggleActive('${s.id}',true)">Reactivate</button>`;
+        return `
+          <tr style="${isActive?"":"opacity:0.6"}">
+            <td><strong>${esc(name)}</strong></td>
+            <td class="muted">${esc(s.email||"—")}</td>
+            <td>${roleBadge(s.role)}</td>
+            <td>${statusBadge(isActive)}</td>
+            <td>${actionBtn}</td>
+          </tr>`;
+      }).join("");
+    }
+
+    // ── Activate / deactivate ─────────────────────────────────────────────────
+    window.toggleActive = async function(id, setActive) {
+      const action = setActive ? "reactivate" : "deactivate";
+      if (!confirm(`${setActive?"Reactivate":"Deactivate"} this team member?`)) return;
+      try {
+        await updateDoc(doc(db, "staffmembers", id), {
+          isActive: setActive, updatedAt: serverTimestamp()
+        });
+        const idx = allStaff.findIndex(s => s.id === id);
+        if (idx > -1) allStaff[idx].isActive = setActive;
+
+        // Mirror to userroles if authUid known
+        const s = allStaff.find(x => x.id === id);
+        if (s?.authUid) {
+          try {
+            await setDoc(doc(db, "userroles", s.authUid), { role: s.role }, { merge: true });
+          } catch (e) {}
+        }
+        renderStaff();
+      } catch (err) {
+        alert(`Failed to ${action}: ${err.message}`);
+      }
+    };
+
+    // ── Invite form submit ────────────────────────────────────────────────────
+    btnInvite.addEventListener("click", async () => {
+      clearMessages();
+
+      const firstName = document.getElementById("inv-firstName").value.trim();
+      const lastName  = document.getElementById("inv-lastName").value.trim();
+      const email     = document.getElementById("inv-email").value.trim();
+      const role      = document.getElementById("inv-role").value;
+      const password  = document.getElementById("inv-password").value;
+      const phone     = document.getElementById("inv-phone").value.trim();
+      const startDate = document.getElementById("inv-startDate").value;
+
+      if (!firstName || !lastName) { invError.textContent="Please enter first and last name."; invError.classList.add("show"); return; }
+      if (!role)     { invError.textContent="Please select a role."; invError.classList.add("show"); return; }
+      if (!email)    { invError.textContent="Please enter an email address."; invError.classList.add("show"); return; }
+      if (password.length < 8) { invError.textContent="Temporary password must be at least 8 characters."; invError.classList.add("show"); return; }
+
+      btnInvite.disabled = true;
+      btnInvite.innerHTML = '<span class="spinner-sm"></span> Creating…';
+
+      try {
+        const idToken = await auth.currentUser.getIdToken();
+        const payload = { firstName, lastName, role, email, password, phone, startDate };
+
+        const response = await fetch(CREATE_USER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + idToken },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const msg = data.error || "An unexpected error occurred. Please try again.";
+          if (data.uid) {
+            invWarning.innerHTML = `⚠ ${esc(msg)}<br>Auth UID: <code>${esc(data.uid)}</code>`;
+            invWarning.classList.add("show");
+          } else {
+            invError.textContent = msg;
+            invError.classList.add("show");
+          }
+          await loadStaff(); return;
+        }
+
+        invSuccess.innerHTML = `✓ <strong>${esc(firstName)} ${esc(lastName)}</strong> added. They can log in with <strong>${esc(email)}</strong> using the temporary password.`;
+        invSuccess.classList.add("show");
+        clearInviteForm();
+        await loadStaff();
+
+      } catch (err) {
+        invError.textContent = "Network error — could not reach the server. Please check your connection and try again.";
+        invError.classList.add("show");
+      } finally {
+        btnInvite.disabled = false;
+        btnInvite.innerHTML = "Add Team Member";
+      }
+    });
+
+    // ── Clear form ────────────────────────────────────────────────────────────
+    function clearInviteForm() {
+      ["inv-firstName","inv-lastName","inv-email","inv-password","inv-phone","inv-startDate"]
+        .forEach(id => { const el=document.getElementById(id); if(el)el.value=""; });
+      document.getElementById("inv-role").value = "";
+    }
+    btnClear.addEventListener("click", () => { clearInviteForm(); clearMessages(); });
+
+    // ── Nav ───────────────────────────────────────────────────────────────────
+    initNav({
+      pageId:       "admin-setup",
+      allowedRoles: ["director"],
+      onReady: async (user, role) => {
+        await loadStaff();
+      }
+    });
+  </script>
+</body>
+</html>

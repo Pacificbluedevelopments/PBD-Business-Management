@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — Pacific Blue</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Market conditions input group ── */
+    .pct-wrap { position:relative;display:inline-block; }
+    .pct-wrap input {
+      font-family:'Poppins',sans-serif;font-size:28px;font-weight:600;
+      color:#333F48;border:2px solid #E5E3E0;border-radius:8px;
+      padding:10px 40px 10px 16px;width:140px;text-align:right;
+      transition:border-color 0.2s;
+    }
+    .pct-wrap input:focus { outline:none;border-color:#B7B09C; }
+    .pct-sym {
+      position:absolute;right:12px;top:50%;transform:translateY(-50%);
+      font-size:22px;font-weight:600;color:#B7B09C;pointer-events:none;
+    }
+    .market-context {
+      margin-top:12px;padding:12px 16px;background:#F5F4F2;border-radius:6px;
+      font-size:13px;color:#6B7280;line-height:1.6;
+    }
+    .market-context strong { color:#333F48; }
+
+    /* ── Save row ── */
+    .save-row { display:flex;align-items:center;gap:10px;margin-top:20px;flex-wrap:wrap; }
+    .save-msg { font-size:12px;font-weight:600;display:none; }
+    .save-msg.show { display:inline; }
+    .save-ok  { color:#2D6A4F; }
+    .save-err { color:#9B2335; }
+
+    /* ── Annual targets table ── */
+    .targets-table { width:100%;border-collapse:collapse;font-family:'Poppins',sans-serif;font-size:13px;margin-top:8px; }
+    .targets-table th {
+      background:#F5F4F2;padding:9px 12px;font-size:10px;font-weight:600;
+      color:#6B7280;text-align:left;text-transform:uppercase;letter-spacing:0.5px;
+      border-bottom:2px solid #E5E3E0;white-space:nowrap;
+    }
+    .targets-table td { padding:8px 10px;border-bottom:1px solid #E5E3E0;vertical-align:middle; }
+    .targets-table tr:last-child td { border-bottom:none; }
+    .targets-table input {
+      font-family:'Poppins',sans-serif;font-size:13px;color:#333F48;
+      border:1px solid #E5E3E0;border-radius:6px;padding:6px 10px;
+      width:100%;min-width:90px;background:#fff;
+      transition:border-color 0.2s;
+    }
+    .targets-table input:focus { outline:none;border-color:#333F48; }
+    .fy-label { font-weight:600;color:#333F48;white-space:nowrap; }
+    .currency-cell { position:relative; }
+    .currency-cell input { padding-left:22px; }
+    .currency-sym-sm { position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:12px;color:#6B7280;pointer-events:none; }
+    .pct-cell { position:relative; }
+    .pct-cell input { padding-right:22px; }
+    .pct-sym-sm { position:absolute;right:9px;top:50%;transform:translateY(-50%);font-size:12px;color:#6B7280;pointer-events:none; }
+    .btn-del-row {
+      padding:3px 8px;background:#FDEDF0;color:#9B2335;border:1px solid #F1B9C0;
+      border-radius:5px;font-family:'Poppins',sans-serif;font-size:11px;cursor:pointer;
+    }
+    .btn-del-row:hover { background:#f5c0c8; }
+
+    /* ── Add FY row ── */
+    .add-fy-row { display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:14px; }
+    .add-fy-row .form-group { min-width:120px; }
+    .add-fy-row .form-label { font-size:10px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px; }
+
+    .spinner-sm {
+      display:inline-block;width:12px;height:12px;
+      border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;
+      border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <main class="main-content">
+
+      <div class="page-header">
+        <h1 class="page-title">Settings</h1>
+        <p class="page-subtitle">Global application settings — Directors only</p>
+      </div>
+
+      <!-- ── Section 1: Market Conditions ─────────────────────────────────── -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <span class="card-title">Market Conditions</span>
+        </div>
+
+        <div>
+          <p style="font-size:13px;color:#6B7280;margin-bottom:16px;line-height:1.6">
+            The market conditions modifier scales all weighted pipeline values and revenue forecasts.
+            <br>Set to <strong style="color:#333F48">100%</strong> for a buoyant market,
+            lower (e.g. <strong style="color:#333F48">70–80%</strong>) to apply a discount reflecting current conditions.
+          </p>
+
+          <div class="pct-wrap">
+            <input type="number" id="market-pct" min="0" max="200" step="5" value="100" />
+            <span class="pct-sym">%</span>
+          </div>
+
+          <div class="market-context" id="market-context">
+            At <strong id="ctx-pct">100%</strong>, a pipeline worth
+            <strong>$1,000,000</strong> has a weighted value of <strong id="ctx-value">$1,000,000</strong>.
+          </div>
+
+          <div class="save-row">
+            <button class="btn btn-primary" id="btn-save-market">Save Market Conditions</button>
+            <span class="save-msg" id="market-save-msg"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Section 2: Annual Targets ─────────────────────────────────────── -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Annual Revenue Targets</span>
+          <span style="font-size:12px;color:#6B7280">Targets used in Revenue Report and Dashboard</span>
+        </div>
+
+        <div class="table-wrap" style="border:none;border-radius:0;margin-bottom:16px">
+          <table class="targets-table">
+            <thead>
+              <tr>
+                <th>Fiscal Year</th>
+                <th>Target Turnover (ex GST)</th>
+                <th>Target GP %</th>
+                <th>Target True Profit %</th>
+                <th>Wages &amp; Overheads (ex GST)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="targets-tbody">
+              <tr><td colspan="6" style="text-align:center;padding:32px;color:#6B7280">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Add new FY row -->
+        <div class="add-fy-row">
+          <div class="form-group">
+            <div class="form-label">Fiscal Year</div>
+            <input class="form-input" type="text" id="new-fy" placeholder="e.g. 2027-28" style="width:130px" />
+          </div>
+          <button class="btn btn-secondary" id="btn-add-fy">+ Add Year</button>
+        </div>
+
+        <div class="save-row" style="margin-top:20px;border-top:1px solid #E5E3E0;padding-top:16px">
+          <button class="btn btn-primary" id="btn-save-targets">Save All Targets</button>
+          <span class="save-msg" id="targets-save-msg"></span>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <button id="sidebar-hamburger" aria-label="Open menu">☰</button>
+  <div id="sidebar-overlay"></div>
+
+  <script type="module">
+    import { initNav }   from "./nav.js";
+    import { db }        from "./firebase-config.js";
+    import {
+      doc, getDoc, setDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    // fyRows holds the in-memory set of fiscal year rows.
+    // Each entry: { fy, turnover, gpPct, trueProfitPct, wages }
+    let fyRows = [];
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const marketInput    = document.getElementById("market-pct");
+    const ctxPct         = document.getElementById("ctx-pct");
+    const ctxValue       = document.getElementById("ctx-value");
+    const btnSaveMarket  = document.getElementById("btn-save-market");
+    const marketSaveMsg  = document.getElementById("market-save-msg");
+    const targetsTbody   = document.getElementById("targets-tbody");
+    const btnAddFY       = document.getElementById("btn-add-fy");
+    const newFYInput     = document.getElementById("new-fy");
+    const btnSaveTargets = document.getElementById("btn-save-targets");
+    const targetsSaveMsg = document.getElementById("targets-save-msg");
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function fmt(n) {
+      if (n === null || n === undefined || n === "") return "";
+      return Number(n).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+    }
+    function parseNum(s) {
+      const v = parseFloat(String(s).replace(/,/g,""));
+      return isNaN(v) ? null : v;
+    }
+    function updateMarketContext() {
+      const pct = parseFloat(marketInput.value) || 0;
+      const dec = pct / 100;
+      ctxPct.textContent   = pct + "%";
+      ctxValue.textContent = "$" + Math.round(1000000 * dec).toLocaleString("en-AU");
+    }
+    marketInput.addEventListener("input", updateMarketContext);
+
+    // ── Load settings ─────────────────────────────────────────────────────────
+    async function loadSettings() {
+      try {
+        const snap = await getDoc(doc(db, "settings", "global"));
+        if (!snap.exists()) { renderTargets(); return; }
+        const data = snap.data();
+
+        // Market conditions
+        if (data.marketConditionsPct != null) {
+          const pct = Math.round(parseFloat(data.marketConditionsPct) * 100);
+          marketInput.value = pct;
+          updateMarketContext();
+        }
+
+        // Annual targets — merge four objects by FY key
+        const fySet = new Set([
+          ...Object.keys(data.targetTurnoverByFY  || {}),
+          ...Object.keys(data.targetGPPctByFY     || {}),
+          ...Object.keys(data.targetTrueProfitByFY || {}),
+          ...Object.keys(data.wagesAndOverheadsByFY|| {}),
+        ]);
+
+        fyRows = Array.from(fySet).sort().map(fy => ({
+          fy,
+          turnover:        (data.targetTurnoverByFY   || {})[fy] ?? "",
+          gpPct:           (data.targetGPPctByFY      || {})[fy] ?? "",
+          trueProfitPct:   (data.targetTrueProfitByFY || {})[fy] ?? "",
+          wages:           (data.wagesAndOverheadsByFY|| {})[fy] ?? "",
+        }));
+
+        renderTargets();
+      } catch (err) {
+        targetsTbody.innerHTML = `<tr><td colspan="6" style="color:#9B2335;padding:24px">Failed to load: ${err.message}</td></tr>`;
+      }
+    }
+
+    // ── Render targets table ──────────────────────────────────────────────────
+    function renderTargets() {
+      if (!fyRows.length) {
+        targetsTbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#6B7280">No fiscal year targets set. Add a year below.</td></tr>`;
+        return;
+      }
+
+      targetsTbody.innerHTML = fyRows.map((row, i) => `
+        <tr id="fy-row-${i}">
+          <td><span class="fy-label">${row.fy}</span></td>
+          <td class="currency-cell">
+            <span class="currency-sym-sm">$</span>
+            <input type="text" id="fy-turnover-${i}" value="${fmt(row.turnover)}"
+              placeholder="e.g. 8,000,000" oninput="syncRow(${i},'turnover',this.value)" />
+          </td>
+          <td class="pct-cell">
+            <input type="number" id="fy-gpPct-${i}" value="${row.gpPct}"
+              min="0" max="100" step="0.5" placeholder="e.g. 18"
+              oninput="syncRow(${i},'gpPct',this.value)" />
+            <span class="pct-sym-sm">%</span>
+          </td>
+          <td class="pct-cell">
+            <input type="number" id="fy-trueProfitPct-${i}" value="${row.trueProfitPct}"
+              min="0" max="100" step="0.5" placeholder="e.g. 8"
+              oninput="syncRow(${i},'trueProfitPct',this.value)" />
+            <span class="pct-sym-sm">%</span>
+          </td>
+          <td class="currency-cell">
+            <span class="currency-sym-sm">$</span>
+            <input type="text" id="fy-wages-${i}" value="${fmt(row.wages)}"
+              placeholder="e.g. 1,200,000" oninput="syncRow(${i},'wages',this.value)" />
+          </td>
+          <td>
+            <button class="btn-del-row" onclick="deleteFYRow(${i})">✕</button>
+          </td>
+        </tr>`).join("");
+    }
+
+    // Keep fyRows in sync as user types (without re-rendering)
+    window.syncRow = function(i, field, value) {
+      if (fyRows[i]) fyRows[i][field] = value;
+    };
+
+    window.deleteFYRow = function(i) {
+      const fy = fyRows[i]?.fy || "";
+      if (!confirm(`Remove targets for ${fy}?`)) return;
+      fyRows.splice(i, 1);
+      renderTargets();
+    };
+
+    // ── Add fiscal year row ───────────────────────────────────────────────────
+    btnAddFY.addEventListener("click", () => {
+      const fy = newFYInput.value.trim();
+      if (!fy) { alert("Enter a fiscal year (e.g. 2027-28)."); return; }
+      if (fyRows.find(r => r.fy === fy)) { alert(`${fy} already exists.`); return; }
+      fyRows.push({ fy, turnover:"", gpPct:"", trueProfitPct:"", wages:"" });
+      fyRows.sort((a,b) => a.fy.localeCompare(b.fy));
+      newFYInput.value = "";
+      renderTargets();
+    });
+
+    // ── Save market conditions ────────────────────────────────────────────────
+    btnSaveMarket.addEventListener("click", async () => {
+      marketSaveMsg.textContent = "";
+      marketSaveMsg.className   = "save-msg";
+      btnSaveMarket.disabled = true;
+      btnSaveMarket.innerHTML = '<span class="spinner-sm"></span> Saving…';
+
+      const pct = parseFloat(marketInput.value);
+      if (isNaN(pct) || pct < 0 || pct > 200) {
+        marketSaveMsg.textContent = "Enter a value between 0 and 200.";
+        marketSaveMsg.className   = "save-msg show save-err";
+        btnSaveMarket.disabled = false;
+        btnSaveMarket.innerHTML = "Save Market Conditions";
+        return;
+      }
+
+      try {
+        await setDoc(doc(db, "settings", "global"),
+          { marketConditionsPct: pct / 100 },
+          { merge: true }
+        );
+        const now = new Date();
+        marketSaveMsg.textContent = `Saved — ${now.toLocaleTimeString("en-AU",{hour:"2-digit",minute:"2-digit"})}`;
+        marketSaveMsg.className   = "save-msg show save-ok";
+        setTimeout(() => { marketSaveMsg.className = "save-msg"; }, 5000);
+      } catch (err) {
+        marketSaveMsg.textContent = "Save failed: " + err.message;
+        marketSaveMsg.className   = "save-msg show save-err";
+      } finally {
+        btnSaveMarket.disabled = false;
+        btnSaveMarket.innerHTML = "Save Market Conditions";
+      }
+    });
+
+    // ── Save annual targets ───────────────────────────────────────────────────
+    btnSaveTargets.addEventListener("click", async () => {
+      targetsSaveMsg.textContent = "";
+      targetsSaveMsg.className   = "save-msg";
+      btnSaveTargets.disabled = true;
+      btnSaveTargets.innerHTML = '<span class="spinner-sm"></span> Saving…';
+
+      // Read current values from inputs into fyRows before building the update
+      fyRows.forEach((row, i) => {
+        row.turnover      = document.getElementById(`fy-turnover-${i}`)?.value || "";
+        row.gpPct         = document.getElementById(`fy-gpPct-${i}`)?.value || "";
+        row.trueProfitPct = document.getElementById(`fy-trueProfitPct-${i}`)?.value || "";
+        row.wages         = document.getElementById(`fy-wages-${i}`)?.value || "";
+      });
+
+      // Build four objects keyed by FY
+      const targetTurnoverByFY   = {};
+      const targetGPPctByFY      = {};
+      const targetTrueProfitByFY = {};
+      const wagesAndOverheadsByFY= {};
+
+      fyRows.forEach(row => {
+        const t = parseNum(row.turnover);
+        const g = parseNum(row.gpPct);
+        const p = parseNum(row.trueProfitPct);
+        const w = parseNum(row.wages);
+        if (t != null) targetTurnoverByFY[row.fy]   = t;
+        if (g != null) targetGPPctByFY[row.fy]      = g;
+        if (p != null) targetTrueProfitByFY[row.fy] = p;
+        if (w != null) wagesAndOverheadsByFY[row.fy] = w;
+      });
+
+      try {
+        await setDoc(doc(db, "settings", "global"), {
+          targetTurnoverByFY,
+          targetGPPctByFY,
+          targetTrueProfitByFY,
+          wagesAndOverheadsByFY,
+        }, { merge: true });
+
+        const now = new Date();
+        targetsSaveMsg.textContent = `Saved ${fyRows.length} year${fyRows.length!==1?"s":""} — ${now.toLocaleTimeString("en-AU",{hour:"2-digit",minute:"2-digit"})}`;
+        targetsSaveMsg.className   = "save-msg show save-ok";
+        setTimeout(() => { targetsSaveMsg.className = "save-msg"; }, 5000);
+      } catch (err) {
+        targetsSaveMsg.textContent = "Save failed: " + err.message;
+        targetsSaveMsg.className   = "save-msg show save-err";
+      } finally {
+        btnSaveTargets.disabled = false;
+        btnSaveTargets.innerHTML = "Save All Targets";
+      }
+    });
+
+    // ── Nav ───────────────────────────────────────────────────────────────────
+    initNav({
+      pageId:       "settings",
+      allowedRoles: ["director"],
+      onReady: async (user, role) => {
+        await loadSettings();
+      }
+    });
+  </script>
+</body>
+</html>

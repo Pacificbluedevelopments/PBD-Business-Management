@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seed Test Data — Pacific Blue</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Poppins', sans-serif; background: #F5F4F2; color: #333F48; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
+    .card { background: #fff; border: 1px solid #E5E3E0; border-radius: 12px; padding: 36px; max-width: 600px; width: 100%; box-shadow: 0 4px 20px rgba(0,0,0,0.07); }
+    .logo { font-size: 11px; font-weight: 600; color: #B7B09C; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 24px; }
+    h1 { font-size: 20px; font-weight: 600; color: #333F48; margin-bottom: 8px; }
+    .subtitle { font-size: 13px; color: #6B7280; line-height: 1.6; margin-bottom: 28px; }
+    .warning { background: #FEF3E2; border: 1px solid #F6D860; border-radius: 8px; padding: 14px 16px; font-size: 13px; color: #B7791F; margin-bottom: 24px; line-height: 1.6; }
+    .warning strong { color: #92610a; }
+    .plan { background: #F5F4F2; border-radius: 8px; padding: 16px; margin-bottom: 24px; font-size: 13px; line-height: 1.8; }
+    .plan-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #6B7280; margin-bottom: 8px; }
+    .plan ul { padding-left: 18px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .ph-sales { background:#F5F4F2;color:#6B7280; }
+    .ph-preliminaries { background:#EBF4FB;color:#1A5276; }
+    .ph-construction { background:#FEF9E7;color:#B7791F; }
+    .ph-completed { background:#EAFAF1;color:#2D6A4F; }
+    .ph-onhold { background:#FDEDEC;color:#9B2335; }
+    .btn { display: block; padding: 11px 24px; border-radius: 7px; font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; border: none; width: 100%; text-align: center; transition: background 0.15s; margin-bottom: 10px; }
+    .btn-primary { background: #333F48; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #2a333c; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-danger { background: #FDEDF0; color: #9B2335; border: 1px solid #F1B9C0; display: none; }
+    .btn-danger:hover:not(:disabled) { background: #f5c0c8; }
+    #log { margin-top: 24px; background: #333F48; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 12px; color: #B7B09C; line-height: 1.8; max-height: 320px; overflow-y: auto; display: none; }
+    #log.show { display: block; }
+    .log-ok { color: #6fcf97; }
+    .log-err { color: #eb5757; }
+    .log-info { color: #B7B09C; }
+    .log-head { color: #fff; font-weight: bold; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .done-banner { display: none; margin-top: 20px; background: #EAF5EF; border: 1px solid #B2DFCC; border-radius: 8px; padding: 16px; font-size: 13px; color: #2D6A4F; text-align: center; line-height: 1.7; }
+    .done-banner.show { display: block; }
+    .done-banner strong { display: block; font-size: 15px; margin-bottom: 4px; }
+    .auth-banner { display: none; margin-bottom: 16px; background: #FDEDF0; border: 1px solid #F1B9C0; border-radius: 8px; padding: 14px 16px; font-size: 13px; color: #9B2335; line-height: 1.6; }
+    .auth-banner.show { display: block; }
+    .auth-banner a { color: #9B2335; font-weight: 600; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Pacific Blue Developments — Dev Tool</div>
+  <h1>Load Test Data</h1>
+  <p class="subtitle">Reads your existing staff from Firestore and creates 10 realistic test projects across all phases, including contracted claim schedules for Construction projects.</p>
+
+  <div class="warning">
+    <strong>⚠ One-time use only.</strong> After running, delete this file from your project folder and redeploy. Do not leave it on the live site.
+  </div>
+
+  <div class="plan">
+    <div class="plan-title">What will be created</div>
+    <ul>
+      <li><span class="badge ph-sales">Sales</span> &nbsp;2 projects — 30% and 70% likelihood</li>
+      <li><span class="badge ph-preliminaries">Preliminaries</span> &nbsp;2 projects with preliminary agreements</li>
+      <li><span class="badge ph-construction">Construction</span> &nbsp;4 projects with contracted claim schedules</li>
+      <li><span class="badge ph-completed">Completed</span> &nbsp;1 project</li>
+      <li><span class="badge ph-onhold">On Hold</span> &nbsp;1 project</li>
+    </ul>
+  </div>
+
+  <div class="auth-banner" id="auth-banner">
+    You must be logged in to run this script. <a href="./login.html">Log in here</a>, then return to this page.
+  </div>
+
+  <button class="btn btn-primary" id="btn-seed">Load Test Data</button>
+  <button class="btn btn-danger" id="btn-clear">Clear Test Data (This Session)</button>
+
+  <div id="log"></div>
+  <div class="done-banner" id="done-banner">
+    <strong>✓ Test data loaded successfully</strong>
+    Navigate the app to test each section.<br><br>
+    <strong>Remember: delete seed-data.html from your project folder and redeploy when done testing.</strong>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, collection, getDocs, addDoc, doc, serverTimestamp, deleteDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey:            "AIzaSyDt24CTidD9kkNn_D6b1A9M0LMgSG0Th0I",
+    authDomain:        "pbd-business-management.firebaseapp.com",
+    projectId:         "pbd-business-management",
+    storageBucket:     "pbd-business-management.firebasestorage.app",
+    messagingSenderId: "360438606646",
+    appId:             "1:360438606646:web:d3b30c947ac46a923da197"
+  };
+
+  const app  = initializeApp(firebaseConfig, "seed-app");
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  const logEl      = document.getElementById("log");
+  const doneBanner = document.getElementById("done-banner");
+  const btnSeed    = document.getElementById("btn-seed");
+  const btnClear   = document.getElementById("btn-clear");
+  const authBanner = document.getElementById("auth-banner");
+
+  const seededIds = [];
+
+  function log(msg, type = "info") {
+    logEl.classList.add("show");
+    const line = document.createElement("div");
+    line.className = "log-" + type;
+    line.textContent = msg;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function daysAgo(n) {
+    const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().split("T")[0];
+  }
+  function weeksFrom(dateStr, weeks) {
+    const d = new Date(dateStr); d.setDate(d.getDate() + weeks * 7); return d.toISOString().split("T")[0];
+  }
+  function makeCode(str) {
+    return "PB" + str.replace(/[^a-zA-Z]/g,"").substring(0,3).toUpperCase() + String(Math.floor(Math.random()*89)+10);
+  }
+
+  onAuthStateChanged(auth, user => {
+    if (!user) { authBanner.classList.add("show"); btnSeed.disabled = true; }
+    else        { authBanner.classList.remove("show"); btnSeed.disabled = false; }
+  });
+
+  btnSeed.addEventListener("click", async () => {
+    const user = auth.currentUser;
+    if (!user) { authBanner.classList.add("show"); return; }
+
+    btnSeed.disabled = true;
+    btnSeed.innerHTML = '<span class="spinner"></span> Loading…';
+    logEl.innerHTML = "";
+
+    try {
+      log("── Reading staff members…", "head");
+      const staffSnap = await getDocs(collection(db, "staffmembers"));
+      const staff = staffSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (!staff.length) { log("✗ No staff found. Add staff first via Admin → Team Setup.", "err"); btnSeed.disabled=false; btnSeed.innerHTML="Load Test Data"; return; }
+
+      const active = staff.filter(s => s.isActive !== false);
+      const sales  = active.filter(s => s.role === "sales");
+      const sups   = active.filter(s => s.role === "supervisor");
+      const gs = i => (sales.length ? sales[i % sales.length] : active[0])?.id || "";
+      const gu = i => (sups.length  ? sups[i  % sups.length]  : active[0])?.id || "";
+      log("✓ Staff loaded: " + sales.length + " sales, " + sups.length + " supervisors", "ok");
+
+      const projects = [
+        { _label:"Sales 30%", projectCode:makeCode("Harrison"), clientFirstName:"James", clientLastName:"Harrison", clientEmail:"james.harrison@email.com", clientPhone:"0412 345 678", projectAddress:"14 Coral Sea Drive, Mooloolaba QLD 4557", lotDP:"Lot 42 DP 123456", councilArea:"Sunshine Coast", storeys:"2", bedrooms:4, bathrooms:2, garages:2, leadSource:"Referral", salesPersonId:gs(0), likelihoodPct:0.3, estimatedBudget:780000, expectedCommencementMonth:"2026-09", pipelineNotes:"Referred by the Mitchell family. Early stages of planning." },
+        { _label:"Sales 70%", projectCode:makeCode("Nguyen"), clientFirstName:"Linh", clientLastName:"Nguyen", clientEmail:"linh.nguyen@gmail.com", clientPhone:"0423 567 890", projectAddress:"7 Hinterland Court, Buderim QLD 4556", lotDP:"Lot 15 DP 654321", councilArea:"Sunshine Coast", storeys:"1", bedrooms:3, bathrooms:2, garages:2, leadSource:"Instagram", salesPersonId:gs(1), likelihoodPct:0.7, estimatedBudget:620000, expectedCommencementMonth:"2026-08", pipelineNotes:"Lot purchased. Waiting on finance confirmation." },
+        { _label:"Prelim 1", projectCode:makeCode("Brennan"), clientFirstName:"Michael", clientLastName:"Brennan", clientEmail:"m.brennan@outlook.com", clientPhone:"0434 111 222", projectAddress:"22 Pacific Boulevard, Kawana Waters QLD 4575", lotDP:"Lot 8 DP 789012", councilArea:"Sunshine Coast", storeys:"2", bedrooms:5, bathrooms:3, garages:3, leadSource:"Display Home", salesPersonId:gs(0), supervisorId:gu(0), likelihoodPct:0.85, estimatedBudget:1150000, expectedCommencementMonth:"2026-07", pipelineNotes:"Preliminary signed. Waiting on DA.", preliminaryDate:daysAgo(21), preliminaryFeeGST:8800 },
+        { _label:"Prelim 2", projectCode:makeCode("Fitzgerald"), clientFirstName:"Claire", clientLastName:"Fitzgerald", clientEmail:"claire.fitz@email.com", clientPhone:"0445 333 444", projectAddress:"3 Ridgeline Place, Bli Bli QLD 4560", lotDP:"Lot 3 DP 345678", councilArea:"Sunshine Coast", storeys:"Split Level", bedrooms:4, bathrooms:2, garages:2, leadSource:"Website", salesPersonId:gs(1), supervisorId:gu(1), likelihoodPct:0.9, estimatedBudget:890000, expectedCommencementMonth:"2026-08", pipelineNotes:"Design underway. Contract expected in 3 weeks.", preliminaryDate:daysAgo(14), preliminaryFeeGST:6600 },
+        { _label:"Construction 1", projectCode:makeCode("Thompson"), clientFirstName:"David", clientLastName:"Thompson", clientEmail:"d.thompson@business.com", clientPhone:"0456 555 666", projectAddress:"35 Beach Access Road, Maroochydore QLD 4558", lotDP:"Lot 22 DP 901234", councilArea:"Sunshine Coast", storeys:"2", bedrooms:4, bathrooms:3, garages:2, leadSource:"Referral", salesPersonId:gs(0), supervisorId:gu(0), likelihoodPct:1.0, estimatedBudget:950000, expectedCommencementMonth:"2025-11", preliminaryDate:daysAgo(180), preliminaryFeeGST:7700, contractDate:daysAgo(120), contractValueGST:1045000, contractValueExGST:950000 },
+        { _label:"Construction 2", projectCode:makeCode("Walker"), clientFirstName:"Emma", clientLastName:"Walker", clientEmail:"emma.walker@email.com", clientPhone:"0467 777 888", projectAddress:"89 Noosa Heads Drive, Noosaville QLD 4566", lotDP:"Lot 5 DP 234567", councilArea:"Noosa", storeys:"1", bedrooms:3, bathrooms:2, garages:2, leadSource:"Real Estate Agent", salesPersonId:gs(1), supervisorId:gu(1), likelihoodPct:1.0, estimatedBudget:720000, expectedCommencementMonth:"2025-10", preliminaryDate:daysAgo(200), preliminaryFeeGST:5500, contractDate:daysAgo(140), contractValueGST:792000, contractValueExGST:720000 },
+        { _label:"Construction 3", projectCode:makeCode("Patel"), clientFirstName:"Raj", clientLastName:"Patel", clientEmail:"raj.patel@gmail.com", clientPhone:"0478 999 000", projectAddress:"12 Mountain View Terrace, Maleny QLD 4552", lotDP:"Lot 11 DP 567890", councilArea:"Sunshine Coast", storeys:"2", bedrooms:5, bathrooms:3, garages:3, leadSource:"Instagram", salesPersonId:gs(0), supervisorId:gu(0), likelihoodPct:1.0, estimatedBudget:1250000, expectedCommencementMonth:"2025-09", preliminaryDate:daysAgo(240), preliminaryFeeGST:9900, contractDate:daysAgo(180), contractValueGST:1375000, contractValueExGST:1250000 },
+        { _label:"Construction 4", projectCode:makeCode("OBrien"), clientFirstName:"Patrick", clientLastName:"O'Brien", clientEmail:"patrick.obrien@email.com", clientPhone:"0489 111 234", projectAddress:"56 Saltwater Creek Road, Peregian Beach QLD 4573", lotDP:"Lot 7 DP 890123", councilArea:"Noosa", storeys:"2", bedrooms:4, bathrooms:2, garages:2, leadSource:"Facebook", salesPersonId:gs(1), supervisorId:gu(1), likelihoodPct:1.0, estimatedBudget:870000, expectedCommencementMonth:"2025-12", preliminaryDate:daysAgo(160), preliminaryFeeGST:6600, contractDate:daysAgo(100), contractValueGST:957000, contractValueExGST:870000 },
+        { _label:"Completed", projectCode:makeCode("Chen"), clientFirstName:"Wei", clientLastName:"Chen", clientEmail:"wei.chen@email.com", clientPhone:"0401 222 333", projectAddress:"4 Headland Close, Coolum Beach QLD 4573", lotDP:"Lot 2 DP 112233", councilArea:"Sunshine Coast", storeys:"1", bedrooms:3, bathrooms:2, garages:1, leadSource:"Referral", salesPersonId:gs(0), supervisorId:gu(0), likelihoodPct:1.0, estimatedBudget:580000, expectedCommencementMonth:"2024-06", preliminaryDate:daysAgo(540), preliminaryFeeGST:4400, contractDate:daysAgo(480), contractValueGST:638000, contractValueExGST:580000, completedAt:daysAgo(30) },
+        { _label:"On Hold", projectCode:makeCode("Morrison"), clientFirstName:"Karen", clientLastName:"Morrison", clientEmail:"karen.morrison@email.com", clientPhone:"0412 444 555", projectAddress:"19 Hinterland Way, Nambour QLD 4560", lotDP:"Lot 9 DP 445566", councilArea:"Sunshine Coast", storeys:"2", bedrooms:4, bathrooms:2, garages:2, leadSource:"Website", salesPersonId:gs(1), likelihoodPct:0.6, estimatedBudget:760000, expectedCommencementMonth:"2026-11", pipelineNotes:"On hold pending sale of existing property.", onHoldAt:daysAgo(45) },
+      ];
+
+      log("── Creating projects…", "head");
+      const stages = [
+        { claimNumber:1, claimName:"Deposit",             pct:0.05, weeks:0  },
+        { claimNumber:2, claimName:"Base Stage",          pct:0.15, weeks:3  },
+        { claimNumber:3, claimName:"Frame Stage",         pct:0.20, weeks:7  },
+        { claimNumber:4, claimName:"Lockup Stage",        pct:0.20, weeks:13 },
+        { claimNumber:5, claimName:"Fixing Stage",        pct:0.25, weeks:20 },
+        { claimNumber:6, claimName:"Practical Completion",pct:0.15, weeks:26 },
+      ];
+
+      for (const p of projects) {
+        const { _label, ...data } = p;
+        const ref = await addDoc(collection(db, "projects"), { ...data, createdAt:serverTimestamp(), updatedAt:serverTimestamp(), createdBy:user.uid });
+        seededIds.push(ref.id);
+        log("✓ " + _label + " — " + data.projectCode + " — " + data.projectAddress.split(",")[0], "ok");
+
+        if (data.contractDate) {
+          for (let i = 0; i < stages.length; i++) {
+            const s = stages[i];
+            const planned = weeksFrom(data.contractDate, s.weeks);
+            const actual  = i === 0 ? daysAgo(85) : i === 1 ? daysAgo(55) : "";
+            const status  = i === 0 ? "Received" : i === 1 ? "Issued" : "Scheduled";
+            await addDoc(collection(db, "projects", ref.id, "claimschedule"), {
+              claimNumber:s.claimNumber, claimName:s.claimName,
+              contractedAmountGST:Math.round(data.contractValueExGST * s.pct * 1.1),
+              plannedIssueDate:planned, actualIssueDate:actual,
+              actualAmountReceivedGST:actual ? Math.round(data.contractValueExGST * s.pct * 1.1) : 0,
+              status, variance:null, isLocked:true, mode:"contracted",
+              createdAt:serverTimestamp(), updatedAt:serverTimestamp()
+            });
+          }
+          log("  → 6 contracted claims added", "info");
+        }
+
+        if (!data.contractDate && data.likelihoodPct >= 0.5 && !data.onHoldAt) {
+          for (const s of stages) {
+            await addDoc(collection(db, "projects", ref.id, "claimschedule"), {
+              claimNumber:s.claimNumber, claimName:s.claimName,
+              percentage:s.pct, estimatedAmount:Math.round(data.estimatedBudget * s.pct),
+              mode:"indicative", createdAt:serverTimestamp()
+            });
+          }
+          log("  → 6 indicative claims added", "info");
+        }
+      }
+
+      log("── All done! " + seededIds.length + " projects created.", "head");
+      btnSeed.style.display  = "none";
+      btnClear.style.display = "block";
+      doneBanner.classList.add("show");
+
+    } catch(err) {
+      log("✗ " + err.message, "err");
+      console.error(err);
+      btnSeed.disabled = false;
+      btnSeed.innerHTML = "Load Test Data";
+    }
+  });
+
+  btnClear.addEventListener("click", async () => {
+    if (!seededIds.length) { alert("No seeded projects to clear in this session."); return; }
+    if (!confirm("Delete all " + seededIds.length + " test projects?")) return;
+    btnClear.disabled = true;
+    btnClear.innerHTML = '<span class="spinner"></span> Clearing…';
+    doneBanner.classList.remove("show");
+    for (const id of seededIds) {
+      try {
+        const cs = await getDocs(collection(db, "projects", id, "claimschedule"));
+        for (const d of cs.docs) await deleteDoc(d.ref);
+        await deleteDoc(doc(db, "projects", id));
+        log("✓ Deleted " + id, "ok");
+      } catch(e) { log("✗ " + id + ": " + e.message, "err"); }
+    }
+    log("── Done", "head");
+    seededIds.length = 0;
+    btnSeed.style.display  = "block";
+    btnSeed.disabled       = false;
+    btnSeed.innerHTML      = "Load Test Data";
+    btnClear.style.display = "none";
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Project — Pacific Blue</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Form card sections ── */
+    .form-card {
+      background: #fff;
+      border: 1px solid #E5E3E0;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .form-card-header {
+      background: #333F48;
+      padding: 12px 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-card-body {
+      padding: 22px 20px;
+    }
+
+    /* ── Form grid ── */
+    .fg {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 24px;
+    }
+    .fg.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .fg.cols-1 { grid-template-columns: 1fr; }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .form-group.span-2 { grid-column: span 2; }
+    .form-group.span-3 { grid-column: span 3; }
+
+    .form-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-family: 'Poppins', sans-serif;
+    }
+    .required-star { color: #B7B09C; }
+
+    .form-input,
+    .form-select-raw,
+    .form-textarea {
+      font-family: 'Poppins', sans-serif;
+      font-size: 13px;
+      color: #333F48;
+      background: #fff;
+      border: 1px solid #E5E3E0;
+      border-radius: 6px;
+      padding: 8px 11px;
+      width: 100%;
+      appearance: none;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus,
+    .form-select-raw:focus,
+    .form-textarea:focus {
+      outline: none;
+      border-color: #333F48;
+    }
+    .form-input.error,
+    .form-select-raw.error,
+    .form-textarea.error {
+      border-color: #9B2335;
+    }
+    .form-textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    /* Select wrapper with chevron */
+    .sel-wrap {
+      position: relative;
+    }
+    .sel-wrap::after {
+      content: "▾";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 10px;
+      color: #6B7280;
+      pointer-events: none;
+    }
+
+    /* Currency prefix */
+    .currency-wrap {
+      position: relative;
+    }
+    .currency-prefix {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: #6B7280;
+      pointer-events: none;
+    }
+    .currency-wrap .form-input {
+      padding-left: 24px;
+    }
+
+    /* Inline field errors */
+    .field-error {
+      font-size: 11px;
+      color: #9B2335;
+      font-weight: 500;
+      display: none;
+    }
+    .field-error.show { display: block; }
+
+    /* Pre-populated from lead banner */
+    .lead-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #EAF5EF;
+      border: 1px solid #B2DFCC;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #2D6A4F;
+      margin-bottom: 20px;
+    }
+    .lead-banner.show { display: flex; }
+    .lead-banner strong { color: #1A4A35; }
+
+    /* Action row */
+    .action-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding-top: 4px;
+    }
+
+    /* Spinner */
+    .spinner-sm {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Global save error */
+    .save-error-msg {
+      font-size: 12px;
+      font-weight: 600;
+      color: #9B2335;
+      display: none;
+    }
+    .save-error-msg.show { display: inline; }
+
+    @media (max-width: 768px) {
+      .fg        { grid-template-columns: 1fr; }
+      .fg.cols-3 { grid-template-columns: 1fr; }
+      .form-group.span-2,
+      .form-group.span-3 { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-layout">
+    <aside id="sidebar"></aside>
+    <main class="main-content">
+
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1 class="page-title">New Project</h1>
+          <p class="page-subtitle">Create a project record from a qualified lead</p>
+        </div>
+        <a href="project-list.html" class="btn btn-secondary">← Cancel</a>
+      </div>
+
+      <!-- Lead pre-population banner -->
+      <div class="lead-banner" id="lead-banner">
+        <span>🔗</span>
+        <span>Client details pre-populated from lead <strong id="lead-banner-name"></strong>. Review and complete the project details below.</span>
+      </div>
+
+      <!-- ── Section 1: Client Details ───────────────────────────────────── -->
+      <div class="form-card">
+        <div class="form-card-header">Client Details</div>
+        <div class="form-card-body">
+          <div class="fg">
+
+            <div class="form-group">
+              <label class="form-label">First Name <span class="required-star">*</span></label>
+              <input class="form-input" type="text" id="f-firstName"
+                placeholder="e.g. Sarah" autocomplete="given-name" />
+              <span class="field-error" id="err-firstName">First name is required.</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Last Name <span class="required-star">*</span></label>
+              <input class="form-input" type="text" id="f-lastName"
+                placeholder="e.g. Brown" autocomplete="family-name" />
+              <span class="field-error" id="err-lastName">Last name is required.</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input class="form-input" type="email" id="f-email"
+                placeholder="sarah@example.com" autocomplete="email" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Phone</label>
+              <input class="form-input" type="tel" id="f-phone"
+                placeholder="e.g. 0412 345 678" autocomplete="tel" />
+            </div>
+
+            <div class="form-group span-2">
+              <label class="form-label">Second Contact Name <span style="color:#9CA3AF;font-weight:400;text-transform:none;letter-spacing:0;font-size:10px">(optional — partner / spouse)</span></label>
+              <input class="form-input" type="text" id="f-secondContact"
+                placeholder="e.g. James Brown" />
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Section 2: Project Details ─────────────────────────────────── -->
+      <div class="form-card">
+        <div class="form-card-header">Project Details</div>
+        <div class="form-card-body">
+          <div class="fg">
+
+            <div class="form-group span-2">
+              <label class="form-label">Project Address <span class="required-star">*</span></label>
+              <input class="form-input" type="text" id="f-address"
+                placeholder="e.g. 12 Beachside Drive, Maroochydore QLD 4558" />
+              <span class="field-error" id="err-address">Project address is required.</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Lot / DP Number</label>
+              <input class="form-input" type="text" id="f-lotDP"
+                placeholder="e.g. Lot 23 DP 123456" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Council Area</label>
+              <input class="form-input" type="text" id="f-councilArea"
+                placeholder="e.g. Sunshine Coast Council" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Storeys</label>
+              <div class="sel-wrap">
+                <select class="form-select-raw" id="f-storeys">
+                  <option value="">— Select —</option>
+                  <option value="1">1 Storey</option>
+                  <option value="2">2 Storeys</option>
+                  <option value="Split Level">Split Level</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Bedrooms</label>
+              <input class="form-input" type="number" id="f-bedrooms"
+                min="1" max="10" step="1" placeholder="e.g. 4" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Bathrooms</label>
+              <input class="form-input" type="number" id="f-bathrooms"
+                min="1" max="10" step="0.5" placeholder="e.g. 2" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Garages</label>
+              <input class="form-input" type="number" id="f-garages"
+                min="0" max="5" step="1" placeholder="e.g. 2" />
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Section 3: Sales Details ───────────────────────────────────── -->
+      <div class="form-card">
+        <div class="form-card-header">Sales Details</div>
+        <div class="form-card-body">
+          <div class="fg">
+
+            <div class="form-group">
+              <label class="form-label">Lead Source</label>
+              <div class="sel-wrap">
+                <select class="form-select-raw" id="f-leadSource">
+                  <option value="">— Select —</option>
+                  <option>Referral</option>
+                  <option>Website</option>
+                  <option>Display Home</option>
+                  <option>Instagram</option>
+                  <option>Facebook</option>
+                  <option>Real Estate Agent</option>
+                  <option>Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Sales Person</label>
+              <div class="sel-wrap">
+                <select class="form-select-raw" id="f-salesPerson">
+                  <option value="">— Loading… —</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Likelihood %</label>
+              <div class="sel-wrap">
+                <select class="form-select-raw" id="f-likelihood">
+                  <option value="">— Select —</option>
+                  <option value="0.10">10%</option>
+                  <option value="0.20">20%</option>
+                  <option value="0.30">30%</option>
+                  <option value="0.40">40%</option>
+                  <option value="0.50">50%</option>
+                  <option value="0.60">60%</option>
+                  <option value="0.70">70%</option>
+                  <option value="0.80">80%</option>
+                  <option value="0.90">90%</option>
+                  <option value="1.00">100%</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Estimated Budget (ex GST)</label>
+              <div class="currency-wrap">
+                <span class="currency-prefix">$</span>
+                <input class="form-input" type="number" id="f-budget"
+                  min="0" step="1000" placeholder="e.g. 650000" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Expected Commencement Month</label>
+              <input class="form-input" type="month" id="f-commenceMonth"
+                placeholder="YYYY-MM" />
+            </div>
+
+            <div class="form-group span-2">
+              <label class="form-label">Pipeline Notes</label>
+              <textarea class="form-textarea" id="f-pipelineNotes"
+                placeholder="Any notes about the client's plans, timeline, constraints…"></textarea>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Action row ──────────────────────────────────────────────────── -->
+      <div class="action-row">
+        <button class="btn btn-primary" id="btn-create">Create Project</button>
+        <a href="project-list.html" class="btn btn-secondary">Cancel</a>
+        <span class="save-error-msg" id="save-error"></span>
+      </div>
+
+    </main>
+  </div>
+
+  <button id="sidebar-hamburger" aria-label="Open menu">☰</button>
+  <div id="sidebar-overlay"></div>
+
+  <script type="module">
+    import { initNav }  from "./nav.js";
+    import { db }       from "./firebase-config.js";
+    import {
+      collection, doc, getDoc, getDocs, addDoc, updateDoc,
+      query, where, orderBy, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    const params   = new URLSearchParams(window.location.search);
+    const fromLead = params.get("fromLead"); // optional lead ID
+    let   currentUser = null;
+    let   leadData    = null;   // populated if fromLead present
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const btnCreate  = document.getElementById("btn-create");
+    const saveError  = document.getElementById("save-error");
+
+    // ── Load staff into Sales Person dropdown ─────────────────────────────────
+    async function loadSalesPersons() {
+      const sel = document.getElementById("f-salesPerson");
+      try {
+        const snap = await getDocs(
+          query(collection(db, "staffmembers"), orderBy("lastName", "asc"))
+        );
+        const staff = [];
+        snap.forEach(d => {
+          const s = d.data();
+          if (s.isActive !== false &&
+              ["director","sales","Director","Sales"].includes(s.role||"")) {
+            staff.push({ id: d.id, name: `${s.firstName||""} ${s.lastName||""}`.trim() });
+          }
+        });
+        sel.innerHTML = '<option value="">— Unassigned —</option>' +
+          staff.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+      } catch (err) {
+        sel.innerHTML = '<option value="">— Could not load —</option>';
+      }
+    }
+
+    // ── Pre-populate from lead ────────────────────────────────────────────────
+    async function loadLead() {
+      if (!fromLead) return;
+      try {
+        const snap = await getDoc(doc(db, "leads", fromLead));
+        if (!snap.exists()) return;
+        leadData = snap.data();
+
+        // Set fields
+        setVal("f-firstName",  leadData.firstName  || "");
+        setVal("f-lastName",   leadData.lastName   || "");
+        setVal("f-email",      leadData.email      || "");
+        setVal("f-phone",      leadData.phone      || "");
+
+        // Lead source — try to match dropdown option
+        if (leadData.leadSource) {
+          const sel = document.getElementById("f-leadSource");
+          const opt = Array.from(sel.options).find(o => o.value === leadData.leadSource);
+          if (opt) sel.value = leadData.leadSource;
+        }
+
+        // Show banner
+        const name = `${leadData.firstName||""} ${leadData.lastName||""}`.trim();
+        document.getElementById("lead-banner-name").textContent = name || fromLead;
+        document.getElementById("lead-banner").classList.add("show");
+      } catch (err) {
+        // Non-fatal — just skip pre-population
+      }
+    }
+
+    function setVal(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    }
+
+    // ── Validation ────────────────────────────────────────────────────────────
+    function showErr(id, show) {
+      const err   = document.getElementById("err-" + id);
+      const input = document.getElementById("f-"   + id);
+      if (err)   { show ? err.classList.add("show")   : err.classList.remove("show"); }
+      if (input) { show ? input.classList.add("error"): input.classList.remove("error"); }
+    }
+
+    function validate() {
+      let ok = true;
+      const firstName = document.getElementById("f-firstName").value.trim();
+      const lastName  = document.getElementById("f-lastName").value.trim();
+      const address   = document.getElementById("f-address").value.trim();
+
+      showErr("firstName", !firstName);
+      showErr("lastName",  !lastName);
+      showErr("address",   !address);
+
+      if (!firstName || !lastName || !address) ok = false;
+      return ok;
+    }
+
+    // ── Project code generation ───────────────────────────────────────────────
+    // Format: PB + first 3 letters of last name (uppercase) + 2-digit random (01–99)
+    async function generateProjectCode(lastName) {
+      const prefix = "PB" + lastName.replace(/[^A-Za-z]/g, "").substring(0, 3).toUpperCase();
+      let attempts = 0;
+      while (attempts < 20) {
+        const num  = String(Math.floor(Math.random() * 99) + 1).padStart(2, "0");
+        const code = prefix + num;
+        // Check uniqueness
+        const snap = await getDocs(
+          query(collection(db, "projects"), where("projectCode", "==", code))
+        );
+        if (snap.empty) return code;
+        attempts++;
+      }
+      // Fallback: timestamp suffix
+      return prefix + Date.now().toString().slice(-4);
+    }
+
+    // ── Save ──────────────────────────────────────────────────────────────────
+    btnCreate.addEventListener("click", async () => {
+      saveError.classList.remove("show");
+
+      if (!validate()) return;
+
+      // Gather values
+      const firstName       = document.getElementById("f-firstName").value.trim();
+      const lastName        = document.getElementById("f-lastName").value.trim();
+      const email           = document.getElementById("f-email").value.trim();
+      const phone           = document.getElementById("f-phone").value.trim();
+      const secondContact   = document.getElementById("f-secondContact").value.trim();
+      const address         = document.getElementById("f-address").value.trim();
+      const lotDP           = document.getElementById("f-lotDP").value.trim();
+      const councilArea     = document.getElementById("f-councilArea").value.trim();
+      const storeys         = document.getElementById("f-storeys").value;
+      const bedroomsRaw     = document.getElementById("f-bedrooms").value;
+      const bathroomsRaw    = document.getElementById("f-bathrooms").value;
+      const garagesRaw      = document.getElementById("f-garages").value;
+      const leadSource      = document.getElementById("f-leadSource").value;
+      const salesPersonId   = document.getElementById("f-salesPerson").value;
+      const likelihoodRaw   = document.getElementById("f-likelihood").value;
+      const budgetRaw       = document.getElementById("f-budget").value;
+      const commenceMonth   = document.getElementById("f-commenceMonth").value;
+      const pipelineNotes   = document.getElementById("f-pipelineNotes").value.trim();
+
+      btnCreate.disabled   = true;
+      btnCreate.innerHTML  = '<span class="spinner-sm"></span>Creating…';
+
+      try {
+        const projectCode = await generateProjectCode(lastName || "PRJ");
+
+        const newProject = {
+          projectCode,
+          clientFirstName:      firstName,
+          clientLastName:       lastName,
+          clientEmail:          email        || "",
+          clientPhone:          phone        || "",
+          clientSecondContact:  secondContact|| "",
+          projectAddress:       address,
+          lotDP:                lotDP        || "",
+          councilArea:          councilArea  || "",
+          storeys:              storeys      || "",
+          bedrooms:             bedroomsRaw   ? parseFloat(bedroomsRaw)  : null,
+          bathrooms:            bathroomsRaw  ? parseFloat(bathroomsRaw) : null,
+          garages:              garagesRaw    ? parseInt(garagesRaw)     : null,
+          leadSource:           leadSource   || "",
+          salesPersonId:        salesPersonId|| "",
+          likelihoodPct:        likelihoodRaw ? parseFloat(likelihoodRaw): 0,
+          estimatedBudget:      budgetRaw     ? parseFloat(budgetRaw)    : null,
+          expectedCommencementMonth: commenceMonth || "",
+          pipelineNotes:        pipelineNotes|| "",
+          projectPhase:         "Sales",          // always starts in Sales
+          leadId:               fromLead || "",    // link back to originating lead
+          createdBy:            currentUser.uid,
+          createdAt:            serverTimestamp(),
+          updatedAt:            serverTimestamp(),
+        };
+
+        const ref = await addDoc(collection(db, "projects"), newProject);
+
+        // If we came from a lead, mark it as converted
+        if (fromLead) {
+          try {
+            await updateDoc(doc(db, "leads", fromLead), {
+              convertedToProject:    true,
+              convertedToProjectId:  ref.id,
+              projectId:             ref.id,
+              convertedAt:           serverTimestamp(),
+            });
+          } catch (leadErr) {
+            // Non-fatal — project is created, lead update failure should not block
+            console.warn("Could not update lead record:", leadErr.message);
+          }
+        }
+
+        // Redirect to Sales Pipeline
+        window.location.href = "project-list.html";
+
+      } catch (err) {
+        saveError.textContent = "Save failed: " + err.message;
+        saveError.classList.add("show");
+        btnCreate.disabled  = false;
+        btnCreate.innerHTML = "Create Project";
+      }
+    });
+
+    // ── Clear validation on input ─────────────────────────────────────────────
+    ["f-firstName","f-lastName","f-address"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("input", () => {
+        const field = id.replace("f-", "");
+        showErr(field, false);
+      });
+    });
+
+    // ── Nav + auth ────────────────────────────────────────────────────────────
+    initNav({
+      pageId:       "project-create",
+      allowedRoles: ["director", "sales"],
+      onReady: async (user, role) => {
+        currentUser = user;
+        await Promise.all([loadSalesPersons(), loadLead()]);
+      }
+    });
+  </script>
+</body>
+</html>
